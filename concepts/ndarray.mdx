@@ -1,0 +1,222 @@
+---
+title: "The dpnp.ndarray: DPNP's core array class"
+description: "Learn how dpnp.ndarray stores multidimensional numeric data in USM memory on a SYCL device, its attributes, methods, and how it differs from numpy.ndarray."
+---
+
+`dpnp.ndarray` is the central data structure in DPNP. Like `numpy.ndarray`, it represents a multidimensional, homogeneous array of numeric elements — but every array is backed by a USM (Unified Shared Memory) allocation on a SYCL device such as a GPU or CPU. This means computations run on the device without requiring manual memory transfers. `dpnp.ndarray` is implemented as a thin wrapper around `dpnp.tensor.usm_ndarray` and is exposed publicly as `dpnp.ndarray`.
+
+## Creating arrays
+
+The most common way to create a `dpnp.ndarray` is through the array creation functions exported by `dpnp`. Each function accepts an optional `device`, `usm_type`, and `sycl_queue` argument to control where and how memory is allocated.
+
+<Steps>
+  <Step title="Create from Python data">
+    ```python
+    import dpnp as np
+
+    # From a Python list
+    a = np.array([1, 2, 3, 4, 5])
+
+    # From nested lists (2-D array)
+    b = np.array([[1, 2], [3, 4]], dtype=np.float32)
+    ```
+  </Step>
+
+  <Step title="Create pre-filled arrays">
+    ```python
+    import dpnp as np
+
+    # All zeros
+    z = np.zeros((3, 4), dtype=np.float64)
+
+    # All ones
+    o = np.ones((2, 5))
+
+    # Range of values
+    r = np.arange(0, 10, 2)  # [0, 2, 4, 6, 8]
+
+    # Filled with a constant
+    f = np.full((3, 3), fill_value=7, dtype=np.int32)
+    ```
+  </Step>
+
+  <Step title="Create on a specific device">
+    ```python
+    import dpnp as np
+
+    # Allocate on a GPU using a filter selector
+    a = np.zeros((100,), dtype=np.float32, device="gpu:0")
+
+    # Use shared USM memory (accessible on host and device)
+    b = np.ones((50,), usm_type="shared")
+    ```
+  </Step>
+</Steps>
+
+<Note>
+By default, `dpnp` array creation functions allocate memory using `usm_type="device"` on the system's default SYCL device. This is typically a GPU when one is available.
+</Note>
+
+## Key attributes
+
+Every `dpnp.ndarray` instance exposes both the standard NumPy structural attributes and several SYCL/USM-specific attributes.
+
+### Shape and structure
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `shape` | `tuple` | Lengths of each dimension, e.g. `(3, 4)`. Can be set in-place to reshape without a copy. |
+| `ndim` | `int` | Number of dimensions. |
+| `size` | `int` | Total number of elements (product of `shape`). |
+| `dtype` | `numpy.dtype` | Element data type, e.g. `numpy.float32`. |
+| `itemsize` | `int` | Size in bytes of one element. |
+| `nbytes` | `int` | Total bytes consumed by the array's elements (`size * itemsize`). |
+| `strides` | `tuple` | Byte step between consecutive elements along each axis. |
+
+```python
+import dpnp as np
+
+x = np.zeros((3, 4), dtype=np.float32)
+print(x.shape)     # (3, 4)
+print(x.ndim)      # 2
+print(x.size)      # 12
+print(x.dtype)     # float32
+print(x.itemsize)  # 4
+print(x.nbytes)    # 48
+```
+
+### SYCL and USM attributes
+
+These attributes are unique to `dpnp.ndarray` and have no equivalent in `numpy.ndarray`.
+
+<Info>
+These attributes expose the underlying SYCL execution context. They are useful when coordinating with other `dpctl`-based libraries or when you need to schedule work on the same queue as your array.
+</Info>
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `device` | `dpnp.tensor.Device` | Array API device object wrapping the array's `SyclQueue`. Inspect via `x.device`. |
+| `sycl_device` | `dpctl.SyclDevice` | The SYCL device on which the USM allocation lives. |
+| `sycl_queue` | `dpctl.SyclQueue` | The SYCL queue associated with this array's memory. |
+| `sycl_context` | `dpctl.SyclContext` | The SYCL context to which the USM allocation is bound. |
+| `usm_type` | `str` | USM allocation type: `"device"`, `"shared"`, or `"host"`. |
+
+```python
+import dpnp as np
+
+x = np.ones(10)
+print(x.device)       # Device(level_zero:gpu:0)
+print(x.sycl_device)  # <SyclDevice [level_zero:gpu:0]>
+print(x.sycl_queue)   # <dpctl.SyclQueue ...>
+print(x.usm_type)     # device
+```
+
+## Array methods overview
+
+`dpnp.ndarray` provides a comprehensive set of methods that mirror `numpy.ndarray`. The table below lists the most commonly used methods by category.
+
+<CardGroup cols={2}>
+  <Card title="Shape manipulation">
+    - `reshape(*shape)` — return view with new shape
+    - `transpose(*axes)` — reverse or permute axes
+    - `flatten(order="C")` — copy collapsed to 1-D
+    - `ravel(order="C")` — contiguous 1-D view or copy
+    - `squeeze(axis=None)` — remove size-1 axes
+    - `swapaxes(axis1, axis2)` — interchange two axes
+  </Card>
+  <Card title="Reductions">
+    - `sum(axis, dtype, ...)` — sum of elements
+    - `mean(axis, dtype, ...)` — arithmetic mean
+    - `max(axis, ...)` / `min(axis, ...)` — extrema
+    - `std(axis, ddof, ...)` — standard deviation
+    - `var(axis, ddof, ...)` — variance
+    - `prod(axis, dtype, ...)` — product of elements
+  </Card>
+  <Card title="Sorting & searching">
+    - `sort(axis, kind, descending, ...)` — in-place sort
+    - `argsort(axis, kind, descending, ...)` — sort indices
+    - `argmax(axis)` / `argmin(axis)` — index of extrema
+    - `searchsorted(v, side, sorter)` — insertion points
+    - `nonzero()` — indices of non-zero elements
+  </Card>
+  <Card title="Data transfer">
+    - `asnumpy()` — copy to `numpy.ndarray`
+    - `astype(dtype, order, casting, ...)` — cast to new dtype
+    - `copy(order, device, usm_type, ...)` — explicit copy
+    - `to_device(device)` — transfer to another SYCL device
+    - `item(*args)` — extract a scalar to Python
+    - `fill(value)` — fill in-place with scalar
+  </Card>
+</CardGroup>
+
+```python
+import dpnp as np
+
+a = np.arange(12, dtype=np.float32).reshape(3, 4)
+
+# Reduction along an axis
+print(a.sum(axis=1))       # array([ 6., 22., 38.])
+
+# In-place sort
+a.sort(axis=0)
+
+# Copy back to host
+arr_host = a.asnumpy()     # numpy.ndarray
+```
+
+## Comparison with numpy.ndarray
+
+`dpnp.ndarray` is designed to be a drop-in replacement for `numpy.ndarray` in most numerical code. The table below summarises what is the same and what is new.
+
+<Tabs>
+  <Tab title="What stays the same">
+    - All standard structural attributes: `shape`, `ndim`, `size`, `dtype`, `itemsize`, `nbytes`, `strides`, `flags`
+    - Full set of arithmetic operators (`+`, `-`, `*`, `/`, `//`, `%`, `**`, `@`, `<<`, `>>`, `&`, `|`, `^`, `~`)
+    - In-place operators (`+=`, `-=`, `*=`, etc.)
+    - Comparison operators returning boolean arrays
+    - Indexing and slicing syntax
+    - Methods: `reshape`, `transpose`, `flatten`, `ravel`, `sum`, `mean`, `max`, `min`, `sort`, `argsort`, `astype`, `copy`, `fill`, `diagonal`, `dot`, and many more
+    - `T` property (2-D arrays), `mT` property (last two axes of any N-D array)
+    - `real` and `imag` properties for complex arrays
+    - `tolist()`, `tobytes()`, `tofile()` for serialisation
+  </Tab>
+  <Tab title="What is new in DPNP">
+    - **No implicit NumPy conversion.** Calling `numpy.asarray(dpnp_arr)` raises `TypeError`. Use `.asnumpy()` instead.
+    - **Device attributes:** `device`, `sycl_device`, `sycl_queue`, `sycl_context`, `usm_type`.
+    - **Device placement:** every array creation function accepts `device=`, `usm_type=`, and `sycl_queue=` keyword arguments.
+    - **`to_device(device)`:** transfers the array to a different SYCL device.
+    - **`get_array()`:** returns the underlying `dpnp.tensor.usm_ndarray`.
+    - **`__sycl_usm_array_interface__`:** exposes the USM array interface for interop with other SYCL-aware libraries.
+    - **DLPack support** with device-aware `__dlpack__` / `__dlpack_device__`.
+    - `.T` on non-2-D arrays emits a `DeprecationWarning`; use `.transpose()` or `.mT` instead.
+  </Tab>
+</Tabs>
+
+## Arithmetic operations
+
+All arithmetic on `dpnp.ndarray` is element-wise and executes on the device. Operators call the corresponding DPNP universal functions internally.
+
+```python
+import dpnp as np
+
+a = np.array([1.0, 2.0, 3.0])
+b = np.array([4.0, 5.0, 6.0])
+
+# Element-wise operations
+c = a + b          # dpnp.add(a, b)
+d = a * b          # dpnp.multiply(a, b)
+e = a ** 2         # dpnp.power(a, 2)
+f = a / b          # dpnp.true_divide(a, b)
+
+# In-place (no new allocation)
+a += 10            # dpnp.add(a, 10, out=a)
+
+# Matrix multiplication
+A = np.ones((3, 4))
+B = np.ones((4, 2))
+C = A @ B          # dpnp.matmul(A, B)
+```
+
+<Warning>
+Mixing `dpnp.ndarray` and `numpy.ndarray` operands in the same expression is not supported. Convert NumPy arrays to DPNP with `dpnp.asarray()` first, or convert DPNP arrays to NumPy with `.asnumpy()`.
+</Warning>

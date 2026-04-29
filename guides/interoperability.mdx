@@ -1,0 +1,217 @@
+---
+title: "Interoperability: DLPack, dpctl, and NumPy"
+description: "Exchange DPNP arrays with PyTorch, TensorFlow, and NumPy using DLPack, the SYCL USM array interface, and dpctl's usm_ndarray protocol."
+---
+
+DPNP arrays carry their data in Unified Shared Memory (USM) on a SYCL device. Several zero-copy (or minimal-copy) protocols let you share that memory with other libraries. This page covers the three main interop paths: DLPack for cross-framework tensor exchange, the dpctl `usm_ndarray` protocol for SYCL-native libraries, and the NumPy conversion helpers for host-side code.
+
+## DLPack support
+
+[DLPack](https://dmlc.github.io/dlpack/latest/) is a stable in-memory tensor structure that allows libraries to exchange GPU-resident data without copying. DPNP arrays implement the full DLPack protocol.
+
+### `__dlpack__` and `__dlpack_device__`
+
+`__dlpack__()` produces a DLPack capsule. `__dlpack_device__()` returns a `(device_type, device_id)` tuple describing where the data lives.
+
+```python
+import dpnp
+
+x = dpnp.arange(10, dtype=dpnp.float32, device="gpu")
+
+# Get the device descriptor
+device_type, device_id = x.__dlpack_device__()
+print(device_type, device_id)
+# e.g. DLDeviceType.kDLOneAPI 0
+
+# Produce a DLPack capsule
+capsule = x.__dlpack__()
+```
+
+<Note>
+`__dlpack__()` raises `DLPackCreationError` if the array is allocated on a partitioned SYCL device or with a non-default SYCL context. Use a top-level device (e.g., `"gpu"` rather than a sub-device) when you need DLPack export.
+</Note>
+
+### `dpnp.from_dlpack`
+
+Use `dpnp.from_dlpack()` to import any DLPack capsule into a DPNP array. If the source data is already on a compatible SYCL device, no copy occurs.
+
+```python
+import dpnp
+
+# Round-trip: DPNP → DLPack capsule → DPNP
+x = dpnp.ones((4, 4), dtype=dpnp.float32, device="gpu")
+capsule = x.__dlpack__()
+y = dpnp.from_dlpack(capsule)
+
+print(y.shape)   # (4, 4)
+print(y.device)  # Device(level_zero:gpu:0)
+```
+
+### Controlling copy behavior
+
+The `copy=` parameter lets you control whether a copy is made:
+
+```python
+import dpnp
+
+x = dpnp.zeros(8, dtype=dpnp.float32, device="gpu")
+
+# Never copy — raises BufferError if a copy would be required
+capsule = x.__dlpack__(copy=False)
+
+# Always copy
+capsule_copy = x.__dlpack__(copy=True)
+
+# Copy only if necessary (default)
+capsule_maybe = x.__dlpack__(copy=None)
+```
+
+## Sharing data with PyTorch via DLPack
+
+PyTorch and DPNP can exchange tensors through DLPack when both use the same physical GPU.
+
+<Tabs>
+  <Tab title="DPNP → PyTorch">
+    ```python
+    import dpnp
+    import torch
+
+    # Create a DPNP array on the GPU
+    x_dpnp = dpnp.arange(12, dtype=dpnp.float32, device="gpu").reshape(3, 4)
+
+    # Export to DLPack and import into PyTorch (zero-copy if possible)
+    x_torch = torch.from_dlpack(x_dpnp)
+    print(x_torch.shape)   # torch.Size([3, 4])
+    print(x_torch.device)  # xpu:0 or similar
+    ```
+  </Tab>
+  <Tab title="PyTorch → DPNP">
+    ```python
+    import torch
+    import dpnp
+
+    # Create a PyTorch tensor on GPU
+    t = torch.ones(3, 4, dtype=torch.float32, device="xpu")
+
+    # Export from PyTorch and import into DPNP
+    x_dpnp = dpnp.from_dlpack(t)
+    print(x_dpnp.shape)   # (3, 4)
+    print(x_dpnp.device)  # Device(level_zero:gpu:0) or similar
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+Zero-copy exchange is only possible when both libraries use the same SYCL device and context. If the devices differ, a copy is made automatically (or a `BufferError` is raised if `copy=False`).
+</Warning>
+
+## dpctl `usm_ndarray` interoperability
+
+DPNP is built on top of dpctl's `usm_ndarray`. You can move freely between the two representations using two protocols.
+
+### `get_array()` — DPNP to dpctl
+
+Every `dpnp.ndarray` wraps a `dpnp.tensor.usm_ndarray`. Access it directly with `.get_array()`:
+
+```python
+import dpnp
+import dpnp.tensor as dpt
+
+x = dpnp.ones((3, 3), device="gpu")
+
+# Get the underlying usm_ndarray
+usm_x = x.get_array()
+print(type(usm_x))   # <class 'dpnp.tensor.usm_ndarray'>
+print(usm_x.shape)   # (3, 3)
+```
+
+### `__usm_ndarray__` protocol
+
+dpctl can recognise any object that implements `__usm_ndarray__` as an owner of a USM allocation. `dpnp.ndarray` implements this property to speed up interop with dpctl functions.
+
+```python
+import dpnp
+import dpnp.tensor as dpt
+
+x = dpnp.arange(6, dtype=dpnp.float32, device="gpu")
+
+# dpctl's asarray recognises __usm_ndarray__ and avoids a copy
+usm_view = dpt.asarray(x)
+print(usm_view.usm_type)  # device
+```
+
+### dpctl usm_ndarray → DPNP
+
+Wrap an existing `usm_ndarray` in a `dpnp.ndarray` using the internal `_create_from_usm_ndarray` method:
+
+```python
+import dpnp
+import dpnp.tensor as dpt
+
+# Suppose you have a usm_ndarray from dpctl
+usm_arr = dpt.ones((4,), dtype="float32", device="gpu")
+
+# Wrap it as a dpnp array (zero-copy)
+dpnp_arr = dpnp.ndarray._create_from_usm_ndarray(usm_arr)
+print(dpnp_arr.device)   # Device(level_zero:gpu:0)
+print(dpnp_arr.sum())
+```
+
+## Converting to and from NumPy arrays
+
+NumPy arrays live in host memory; DPNP arrays live in device USM memory. Every conversion involves a data transfer.
+
+### Host → device: `dpnp.asarray`
+
+```python
+import numpy as np
+import dpnp
+
+# Host NumPy array
+cpu_arr = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float64)
+
+# Transfer to device (one copy)
+gpu_arr = dpnp.asarray(cpu_arr, device="gpu")
+print(gpu_arr.device)   # Device(level_zero:gpu:0)
+print(gpu_arr.dtype)    # float64
+```
+
+### Device → host: `.asnumpy()`
+
+```python
+import dpnp
+
+x = dpnp.linspace(0, 1, num=8, device="gpu")
+
+# Copy back to a numpy.ndarray (one copy)
+x_cpu = x.asnumpy()
+print(type(x_cpu))      # <class 'numpy.ndarray'>
+```
+
+<Note>
+`numpy.asarray(dpnp_array)` is deliberately blocked and raises `TypeError`. Use `.asnumpy()` to make the host copy explicit.
+</Note>
+
+## `__sycl_usm_array_interface__`
+
+DPNP exposes the SYCL USM array interface dictionary, which is the SYCL equivalent of NumPy's `__array_interface__`. Other dpctl-based libraries (e.g. numba-dpex) use this to access the raw USM pointer and metadata without copying.
+
+```python
+import dpnp
+
+x = dpnp.zeros((2, 3), dtype=dpnp.float32, device="gpu")
+
+iface = x.__sycl_usm_array_interface__
+print(iface.keys())
+# dict_keys(['shape', 'typestr', 'data', 'strides', 'offset', 'version', 'syclobj'])
+
+print(iface['shape'])    # (2, 3)
+print(iface['typestr'])  # '<f4' for float32
+print(iface['version'])  # interface version integer
+```
+
+The `'syclobj'` entry is a PyCapsule wrapping the `SyclQueue` that owns the allocation. Libraries that understand this interface can schedule SYCL kernels directly on the same queue without any data movement.
+
+<Tip>
+If you are building a library that targets SYCL devices, implement `__sycl_usm_array_interface__` to enable zero-copy interop with DPNP and other dpctl-based libraries.
+</Tip>

@@ -1,0 +1,683 @@
+---
+title: "Linear algebra — dpnp.linalg reference"
+description: "GPU-accelerated linear algebra for DPNP via Intel oneMKL BLAS/LAPACK. Covers matrix products, decompositions, solvers, norms, and eigenvalue routines."
+---
+
+The `dpnp.linalg` module provides GPU-accelerated linear algebra routines backed by Intel oneMKL BLAS and LAPACK kernels. Arrays execute on a SYCL device (CPU or GPU) and results stay in device memory, avoiding unnecessary host copies. The API mirrors `numpy.linalg` so existing NumPy code can be ported with minimal changes.
+
+<Note>
+  Most routines dispatch to oneMKL LAPACK under the hood. A small number of
+  operations (`eig`, `eigvals`) fall back to NumPy when the corresponding
+  oneMKL kernel is not yet available; those cases are noted in each entry.
+</Note>
+
+## Matrix and vector products
+
+### `dpnp.linalg.matmul(x1, x2)`
+
+Compute the matrix product of two arrays. Array-API compatible variant of `dpnp.matmul`.
+
+**Parameters:**
+- `x1` (dpnp.ndarray) — First input array.
+- `x2` (dpnp.ndarray) — Second input array.
+
+**Returns:** `dpnp.ndarray` — Matrix product of `x1` and `x2`.
+
+```python
+import dpnp as np
+
+a = np.array([[1, 0], [0, 1]])
+b = np.array([[4, 1], [2, 2]])
+np.linalg.matmul(a, b)
+# array([[4, 1],
+#        [2, 2]])
+```
+
+---
+
+### `dpnp.linalg.outer(x1, x2)`
+
+Compute the outer product of two 1-D vectors. Array-API compatible; accepts only 1-D inputs.
+
+**Parameters:**
+- `x1` `(M,)` (dpnp.ndarray) — First input vector.
+- `x2` `(N,)` (dpnp.ndarray) — Second input vector.
+
+**Returns:** `(M, N) dpnp.ndarray` — `out[i, j] = x1[i] * x2[j]`.
+
+```python
+import dpnp as np
+
+a = np.array([1, 1, 1])
+b = np.array([1, 2, 3])
+np.linalg.outer(a, b)
+# array([[1, 2, 3],
+#        [1, 2, 3],
+#        [1, 2, 3]])
+```
+
+---
+
+### `dpnp.linalg.tensordot(a, b, /, *, axes=2)`
+
+Compute tensor dot product along specified axes.
+
+**Parameters:**
+- `a` (dpnp.ndarray or scalar) — First input tensor.
+- `b` (dpnp.ndarray or scalar) — Second input tensor.
+- `axes` (int or 2-tuple of array-like, default `2`) — Axes to sum over.
+
+**Returns:** `dpnp.ndarray` — Tensor dot product.
+
+```python
+import dpnp as np
+
+a = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+b = np.array([1, 2, 3])
+np.linalg.tensordot(a, b, axes=1)
+# array([14, 32, 50])
+```
+
+---
+
+### `dpnp.linalg.vecdot(x1, x2, /, *, axis=-1)`
+
+Compute the vector dot product, conjugating `x1` for complex inputs. Array-API compatible.
+
+**Parameters:**
+- `x1` (dpnp.ndarray) — First input array.
+- `x2` (dpnp.ndarray) — Second input array.
+- `axis` (int, default `-1`) — Axis over which to compute the dot product.
+
+**Returns:** `dpnp.ndarray` — Vector dot product of the inputs.
+
+```python
+import dpnp as np
+
+v = np.array([[0., 5., 0.], [0., 0., 10.], [0., 6., 8.]])
+n = np.array([0., 0.6, 0.8])
+np.linalg.vecdot(v, n)
+# array([ 3.,  8., 10.])
+```
+
+---
+
+### `dpnp.linalg.multi_dot(arrays, *, out=None)`
+
+Compute the dot product of two or more arrays in a single call, choosing the most efficient evaluation order automatically.
+
+**Parameters:**
+- `arrays` (sequence of dpnp.ndarray) — Arrays to multiply. The first and last may be 1-D; all others must be 2-D.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Dot product of the supplied arrays.
+
+```python
+import dpnp as np
+from dpnp.linalg import multi_dot
+
+A = np.random.random((10000, 100))
+B = np.random.random((100, 1000))
+C = np.random.random((1000, 5))
+multi_dot([A, B, C]).shape
+# (10000, 5)
+```
+
+---
+
+### `dpnp.linalg.matrix_power(a, n)`
+
+Raise a square matrix to the integer power `n`. Supports positive, negative, and zero exponents.
+
+**Parameters:**
+- `a` `(..., M, M)` (dpnp.ndarray) — Matrix to be raised to the power.
+- `n` (int) — Integer exponent.
+
+**Returns:** `(..., M, M) dpnp.ndarray` — Matrix raised to the power `n`.
+
+```python
+import dpnp as np
+
+i = np.array([[0, 1], [-1, 0]])  # matrix equivalent of imaginary unit
+np.linalg.matrix_power(i, 3)
+# array([[ 0, -1],
+#        [ 1,  0]])
+```
+
+---
+
+### `dpnp.linalg.cross(x1, x2, /, *, axis=-1)`
+
+Returns the cross product of 3-element vectors. Array-API compatible.
+
+**Parameters:**
+- `x1` (dpnp.ndarray) — First input array of 3-D vectors.
+- `x2` (dpnp.ndarray) — Second input array of 3-D vectors.
+- `axis` (int, default `-1`) — Axis containing the vectors.
+
+**Returns:** `dpnp.ndarray` — Array containing the cross products.
+
+```python
+import dpnp as np
+
+x = np.array([1, 2, 3])
+y = np.array([4, 5, 6])
+np.linalg.cross(x, y)
+# array([-3,  6, -3])
+```
+
+---
+
+## Decompositions
+
+### `dpnp.linalg.cholesky(a, /, *, upper=False)`
+
+Cholesky decomposition of a Hermitian positive-definite matrix.
+
+**Parameters:**
+- `a` `(..., M, M)` (dpnp.ndarray) — Hermitian, positive-definite input matrix.
+- `upper` (bool, default `False`) — Return upper-triangular factor when `True`.
+
+**Returns:** `(..., M, M) dpnp.ndarray` — Lower (or upper) Cholesky factor `L` such that `a = L @ L.H`.
+
+```python
+import dpnp as np
+
+A = np.array([[1.0, 2.0], [2.0, 5.0]])
+L = np.linalg.cholesky(A)
+# array([[1., 0.],
+#        [2., 1.]])
+```
+
+---
+
+### `dpnp.linalg.qr(a, mode="reduced")`
+
+Compute the QR factorization of a matrix.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array with `ndim >= 2`.
+- `mode` (`"reduced"` | `"complete"` | `"r"` | `"raw"`, default `"reduced"`) — Output mode controlling matrix dimensions.
+
+**Returns:** Named tuple `(Q, R)` for `"reduced"`/`"complete"` modes; array `R` for `"r"` mode; tuple `(h, tau)` for `"raw"` mode.
+
+```python
+import dpnp as np
+
+a = np.random.randn(9, 6)
+Q, R = np.linalg.qr(a)
+np.allclose(a, np.dot(Q, R))
+# array([ True])
+```
+
+---
+
+### `dpnp.linalg.svd(a, full_matrices=True, compute_uv=True, hermitian=False)`
+
+Singular Value Decomposition. Decomposes `a` into `U @ diag(S) @ Vh`.
+
+**Parameters:**
+- `a` `(..., M, N)` (dpnp.ndarray) — Input array with `ndim >= 2`.
+- `full_matrices` (bool, default `True`) — Return full-sized `U` and `Vh` when `True`.
+- `compute_uv` (bool, default `True`) — Return `U` and `Vh`; return only `S` when `False`.
+- `hermitian` (bool, default `False`) — Assume `a` is Hermitian for a more efficient path.
+
+**Returns:** Named tuple `(U, S, Vh)` when `compute_uv=True`; array `S` otherwise.
+
+```python
+import dpnp as np
+
+a = np.random.randn(9, 6)
+U, S, Vh = np.linalg.svd(a, full_matrices=False)
+np.allclose(a, np.dot(U * S, Vh))
+# array([ True])
+```
+
+---
+
+### `dpnp.linalg.svdvals(x)`
+
+Return singular values of `x` without computing the singular vectors. Equivalent to `svd(x, compute_uv=False)`.
+
+**Parameters:**
+- `x` `(..., M, N)` (dpnp.ndarray) — Input array with `ndim >= 2`.
+
+**Returns:** `(..., K) dpnp.ndarray` — Singular values in descending order, `K = min(M, N)`.
+
+```python
+import dpnp as np
+
+a = np.array([[3, 0], [0, 4]])
+np.linalg.svdvals(a)
+# array([4., 3.])
+```
+
+---
+
+### `dpnp.linalg.eig(a)`
+
+Compute eigenvalues and right eigenvectors of a square matrix.
+
+<Note>
+  `eig` falls back to NumPy because the corresponding oneMKL LAPACK `geev`
+  kernel is not yet available. For symmetric/Hermitian matrices, prefer
+  `eigh` which is fully oneMKL-accelerated.
+</Note>
+
+**Parameters:**
+- `a` `(..., M, M)` (dpnp.ndarray) — Input square matrix.
+
+**Returns:** Named tuple with `eigenvalues` `(..., M)` and `eigenvectors` `(..., M, M)`.
+
+```python
+import dpnp as np
+
+w, v = np.linalg.eig(np.diag(np.array([1.0, 2.0, 3.0])))
+# w: array([1., 2., 3.])
+```
+
+---
+
+### `dpnp.linalg.eigh(a, UPLO="L")`
+
+Return eigenvalues and eigenvectors of a Hermitian or real symmetric matrix. Eigenvalues are returned in ascending order and this routine is oneMKL-accelerated.
+
+**Parameters:**
+- `a` `(..., M, M)` (dpnp.ndarray) — Hermitian or real symmetric matrix.
+- `UPLO` (`"L"` | `"U"`, default `"L"`) — Use lower or upper triangular part.
+
+**Returns:** Named tuple with `eigenvalues` `(..., M)` and `eigenvectors` `(..., M, M)`.
+
+```python
+import dpnp as dp
+
+a = dp.array([[1, -2j], [2j, 5]])
+w, v = dp.linalg.eigh(a)
+# w: array([0.17157288, 5.82842712])
+```
+
+---
+
+### `dpnp.linalg.eigvals(a)`
+
+Compute eigenvalues of a general square matrix (eigenvectors not computed).
+
+<Note>
+  Like `eig`, this falls back to NumPy due to the missing oneMKL `geev`
+  kernel. Use `eigvalsh` for Hermitian matrices.
+</Note>
+
+**Parameters:**
+- `a` `(..., M, M)` (dpnp.ndarray) — Input square matrix.
+
+**Returns:** `(..., M) dpnp.ndarray` — Eigenvalues (not necessarily ordered or real).
+
+---
+
+### `dpnp.linalg.eigvalsh(a, UPLO="L")`
+
+Compute eigenvalues of a Hermitian or real symmetric matrix (eigenvectors not computed). oneMKL-accelerated.
+
+**Parameters:**
+- `a` `(..., M, M)` (dpnp.ndarray) — Hermitian or real symmetric matrix.
+- `UPLO` (`"L"` | `"U"`, default `"L"`) — Triangular part to use.
+
+**Returns:** `(..., M) dpnp.ndarray` — Eigenvalues in ascending order.
+
+```python
+import dpnp as np
+from dpnp import linalg as LA
+
+a = np.array([[1, -2j], [2j, 5]])
+LA.eigvalsh(a)
+# array([0.17157288, 5.82842712])
+```
+
+---
+
+## Solving linear equations
+
+### `dpnp.linalg.solve(a, b)`
+
+Solve the linear system `a @ x = b` for `x`.
+
+**Parameters:**
+- `a` `(..., M, M)` (dpnp.ndarray) — Coefficient matrix.
+- `b` `{(M,), (..., M, K)}` (dpnp.ndarray) — Right-hand side.
+
+**Returns:** `{(..., M), (..., M, K)} dpnp.ndarray` — Solution `x`.
+
+```python
+import dpnp as dp
+
+a = dp.array([[1, 2], [3, 5]])
+b = dp.array([1, 2])
+x = dp.linalg.solve(a, b)
+# array([-1.,  1.])
+```
+
+---
+
+### `dpnp.linalg.lstsq(a, b, rcond=None)`
+
+Return the least-squares solution to the linear matrix equation `a @ x ≈ b`.
+
+**Parameters:**
+- `a` `(M, N)` (dpnp.ndarray) — Coefficient matrix.
+- `b` `{(M,), (M, K)}` (dpnp.ndarray) — Right-hand side.
+- `rcond` (int, float, or None, default `None`) — Cut-off ratio for small singular values.
+
+**Returns:** Tuple `(x, residuals, rank, s)` — Solution, residuals, rank of `a`, singular values.
+
+```python
+import dpnp as np
+
+x = np.array([0, 1, 2, 3])
+y = np.array([-1, 0.2, 0.9, 2.1])
+A = np.vstack([x, np.ones(len(x))]).T
+m, c = np.linalg.lstsq(A, y, rcond=None)[0]
+```
+
+---
+
+### `dpnp.linalg.inv(a)`
+
+Compute the multiplicative inverse of a square matrix.
+
+**Parameters:**
+- `a` `(..., M, M)` (dpnp.ndarray) — Matrix to be inverted.
+
+**Returns:** `(..., M, M) dpnp.ndarray` — Inverse of `a`.
+
+```python
+import dpnp as np
+
+a = np.array([[1., 2.], [3., 4.]])
+ainv = np.linalg.inv(a)
+np.allclose(np.dot(a, ainv), np.eye(2))
+# array([ True])
+```
+
+---
+
+### `dpnp.linalg.pinv(a, rcond=None, hermitian=False, *, rtol=None)`
+
+Compute the Moore-Penrose pseudo-inverse via SVD.
+
+**Parameters:**
+- `a` `(..., M, N)` (dpnp.ndarray) — Matrix or stack of matrices.
+- `rcond` (float or dpnp.ndarray, optional) — Cut-off for small singular values.
+- `hermitian` (bool, default `False`) — Assume `a` is Hermitian.
+- `rtol` (float or dpnp.ndarray, optional) — Array-API alias for `rcond`.
+
+**Returns:** `(..., N, M) dpnp.ndarray` — Pseudo-inverse of `a`.
+
+```python
+import dpnp as np
+
+a = np.random.randn(9, 6)
+B = np.linalg.pinv(a)
+np.allclose(a, np.dot(a, np.dot(B, a)))
+# array(True)
+```
+
+---
+
+### `dpnp.linalg.tensorsolve(a, b, axes=None)`
+
+Solve the tensor equation `a x = b` for `x`.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Coefficient tensor. Shape must satisfy `prod(a.shape[:b.ndim]) == prod(a.shape[b.ndim:])`.
+- `b` (dpnp.ndarray) — Right-hand tensor.
+- `axes` (tuple of ints, optional) — Axes in `a` to reorder before inversion. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Solution tensor with shape `a.shape[b.ndim:]`.
+
+```python
+import dpnp as np
+
+a = np.eye(2 * 3 * 4)
+a.shape = (2 * 3, 4, 2, 3, 4)
+b = np.random.randn(2 * 3, 4)
+x = np.linalg.tensorsolve(a, b)
+# x.shape == (2, 3, 4)
+```
+
+---
+
+### `dpnp.linalg.tensorinv(a, ind=2)`
+
+Compute the 'inverse' of an N-dimensional array.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Tensor to invert. Requires `prod(a.shape[:ind]) == prod(a.shape[ind:])`.
+- `ind` (int, default `2`) — Number of first indices involved in the inverse sum.
+
+**Returns:** `dpnp.ndarray` — Inverse tensor with shape `a.shape[ind:] + a.shape[:ind]`.
+
+```python
+import dpnp as np
+
+a = np.eye(4 * 6)
+a.shape = (4, 6, 8, 3)
+ainv = np.linalg.tensorinv(a, ind=2)
+# ainv.shape == (8, 3, 4, 6)
+```
+
+---
+
+## Norms and other numbers
+
+### `dpnp.linalg.norm(x, ord=None, axis=None, keepdims=False)`
+
+Matrix or vector norm. Can compute eight matrix norms and any vector p-norm.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+- `ord` (int, float, `"fro"`, `"nuc"`, `inf`, or `None`) — Order of the norm. Default: `None` (Frobenius for 2-D, 2-norm for 1-D).
+- `axis` (int, 2-tuple of ints, or None) — Axis or axes along which to compute the norm.
+- `keepdims` (bool, default `False`) — Keep reduced dimensions as size-1.
+
+**Returns:** `dpnp.ndarray` — Norm of the matrix or vector(s).
+
+```python
+import dpnp as np
+
+b = np.arange(9).reshape(3, 3) - 4
+np.linalg.norm(b)           # array(7.74596669)
+np.linalg.norm(b, ord=1)    # array(7.)
+np.linalg.norm(b, ord=np.inf)  # array(9.)
+```
+
+---
+
+### `dpnp.linalg.matrix_norm(x, /, *, keepdims=False, ord="fro")`
+
+Compute the matrix norm of a matrix or stack of matrices. Array-API compatible.
+
+**Parameters:**
+- `x` `(..., M, N)` (dpnp.ndarray) — Input array whose innermost two dimensions form matrices.
+- `keepdims` (bool, default `False`) — Keep normed dimensions.
+- `ord` (default `"fro"`) — Norm order (same choices as `norm`).
+
+**Returns:** `dpnp.ndarray` — Matrix norm.
+
+```python
+import dpnp as np
+
+b = np.arange(9).reshape(3, 3) - 4
+np.linalg.matrix_norm(b)           # array(7.74596669)
+np.linalg.matrix_norm(b, ord=1)    # array(7.)
+```
+
+---
+
+### `dpnp.linalg.vector_norm(x, /, *, axis=None, keepdims=False, ord=2)`
+
+Compute the vector norm of a vector or batch of vectors. Array-API compatible.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+- `axis` (int, n-tuple, or None, default `None`) — Axis/axes along which to compute norms.
+- `keepdims` (bool, default `False`) — Keep normed dimensions.
+- `ord` (default `2`) — Norm order.
+
+**Returns:** `dpnp.ndarray` — Vector norm.
+
+```python
+import dpnp as np
+
+b = np.arange(9).reshape(3, 3) + 1
+np.linalg.vector_norm(b)        # array(16.88194302)
+np.linalg.vector_norm(b, ord=1) # array(45.)
+```
+
+---
+
+### `dpnp.linalg.cond(x, p=None)`
+
+Compute the condition number of a matrix.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input matrix.
+- `p` (`None`, `1`, `-1`, `2`, `-2`, `inf`, `-inf`, `"fro"`, optional) — Norm order used for computation. Default: `None` (2-norm).
+
+**Returns:** `dpnp.ndarray` — Condition number; may be infinite.
+
+```python
+import dpnp as np
+
+a = np.array([[1, 0, -1], [0, 1, 0], [1, 0, 1]])
+np.linalg.cond(a)           # array(1.41421356)
+np.linalg.cond(a, 'fro')    # array(3.16227766)
+```
+
+---
+
+### `dpnp.linalg.det(a)`
+
+Compute the determinant of a square matrix or stack of matrices.
+
+**Parameters:**
+- `a` `(..., M, M)` (dpnp.ndarray) — Input array.
+
+**Returns:** `(...) dpnp.ndarray` — Determinant.
+
+```python
+import dpnp as dp
+
+a = dp.array([[1, 2], [3, 4]])
+dp.linalg.det(a)
+# array(-2.)
+```
+
+---
+
+### `dpnp.linalg.matrix_rank(A, tol=None, hermitian=False, *, rtol=None)`
+
+Return the matrix rank using SVD.
+
+**Parameters:**
+- `A` `{(M,), (..., M, N)}` (dpnp.ndarray) — Input vector or stack of matrices.
+- `tol` (float or dpnp.ndarray, optional) — Absolute threshold below which singular values are treated as zero.
+- `hermitian` (bool, default `False`) — Treat `A` as Hermitian for efficiency.
+- `rtol` (float or dpnp.ndarray, optional) — Relative tolerance; alternative to `tol`.
+
+**Returns:** `(...) dpnp.ndarray` — Rank of `A`.
+
+```python
+import dpnp as np
+from dpnp.linalg import matrix_rank
+
+matrix_rank(np.eye(4))   # array(4)
+I = np.eye(4)
+I[-1, -1] = 0.
+matrix_rank(I)           # array(3)
+```
+
+---
+
+### `dpnp.linalg.slogdet(a)`
+
+Compute the sign and natural logarithm of the determinant of a matrix.
+
+**Parameters:**
+- `a` `(..., M, M)` (dpnp.ndarray) — Input square matrix.
+
+**Returns:** Named tuple with `sign` `(...)` and `logabsdet` `(...)`.
+
+```python
+import dpnp as dp
+
+a = dp.array([[1, 2], [3, 4]])
+sign, logabsdet = dp.linalg.slogdet(a)
+sign * dp.exp(logabsdet)
+# array(-2.)
+```
+
+---
+
+### `dpnp.linalg.trace(x, /, *, offset=0, dtype=None)`
+
+Return the sum along diagonals of a matrix or stack of matrices. Array-API compatible variant uses the last two dimensions.
+
+**Parameters:**
+- `x` `(..., M, N)` (dpnp.ndarray) — Input array.
+- `offset` (int, default `0`) — Diagonal offset from the main diagonal.
+- `dtype` (dtype or None) — Accumulation dtype. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Trace values.
+
+```python
+import dpnp as np
+
+np.linalg.trace(np.eye(3))
+# array(3.)
+```
+
+---
+
+## Other matrix operations
+
+### `dpnp.linalg.diagonal(x, /, *, offset=0)`
+
+Return specified diagonals of a matrix or stack of matrices. Array-API compatible; uses the last two dimensions.
+
+**Parameters:**
+- `x` `(..., M, N)` (dpnp.ndarray) — Input array.
+- `offset` (int, default `0`) — Diagonal offset from the main diagonal.
+
+**Returns:** `(..., min(N, M)) dpnp.ndarray` — Extracted diagonals.
+
+---
+
+### `dpnp.linalg.matrix_transpose(x)`
+
+Transpose the innermost two dimensions of a matrix or stack of matrices. Array-API compatible.
+
+**Parameters:**
+- `x` `(..., M, N)` (dpnp.ndarray) — Input array with `ndim >= 2`.
+
+**Returns:** `(..., N, M) dpnp.ndarray` — Transposed array.
+
+---
+
+## Exceptions
+
+### `dpnp.linalg.LinAlgError`
+
+Exception raised when a linear algebra operation cannot be completed — for example, when a singular matrix is inverted. Inherits from Python's `ValueError`.
+
+```python
+import dpnp as np
+
+np.linalg.inv(np.zeros((2, 2)))
+# dpnp.linalg.LinAlgError: The input coefficient matrix is singular.
+```
+
+---
+
+## Broadcasting over stacks of matrices
+
+Several routines accept batched inputs via ellipsis notation. An input shape of `(N, M, M)` is treated as a stack of `N` square matrices. Return values follow the same convention — `det` on a `(N, M, M)` input returns shape `(N,)`. This generalises to arbitrary leading batch dimensions.

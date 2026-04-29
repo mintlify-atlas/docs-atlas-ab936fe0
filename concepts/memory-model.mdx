@@ -1,0 +1,192 @@
+---
+title: "USM memory model and device placement"
+description: "How DPNP uses Unified Shared Memory from SYCL, the three USM allocation types, device placement rules, and how to move data between host and device."
+---
+
+Every `dpnp.ndarray` is backed by a USM (Unified Shared Memory) allocation managed by the SYCL runtime through Intel's `dpctl` library. USM is a pointer-based memory model defined by the SYCL standard that presents a single virtual address space across the CPU host and one or more SYCL devices (GPUs, FPGAs, and more). Understanding the three USM allocation types and DPNP's placement rules is essential for writing correct, high-performance code.
+
+## USM memory types
+
+SYCL defines three distinct USM allocation types, each with different accessibility and performance characteristics. DPNP exposes all three through the `usm_type` parameter of array creation functions, and each type is represented at the Python level by a class in `dpnp.memory`.
+
+<CardGroup cols={2}>
+  <Card title="device" icon="microchip">
+    Allocated in device-local memory (e.g. GPU VRAM). Only accessible from kernels executing on that device. Direct host access causes undefined behaviour. **Fastest for GPU compute.** This is the DPNP default.
+  </Card>
+  <Card title="shared" icon="arrow-left-right">
+    Allocated in memory that is accessible from both host and device. The SYCL runtime migrates pages between host and device automatically. Convenient but may be slower than `device` memory for GPU-heavy workloads.
+  </Card>
+  <Card title="host" icon="server">
+    Allocated in host (CPU) memory, but accessible from device kernels via PCIe or similar interconnect. Useful for staging data or when the array is read infrequently by the device.
+  </Card>
+</CardGroup>
+
+The backing classes in `dpnp.memory` are:
+
+| `usm_type` | `dpnp.memory` class | `dpctl.memory` class |
+|------------|--------------------|--------------------|
+| `"device"` | `MemoryUSMDevice` | `dpctl.memory.MemoryUSMDevice` |
+| `"shared"` | `MemoryUSMShared` | `dpctl.memory.MemoryUSMShared` |
+| `"host"` | `MemoryUSMHost` | `dpctl.memory.MemoryUSMHost` |
+
+## How DPNP arrays are allocated
+
+By default, all DPNP array creation functions (`zeros`, `ones`, `empty`, `arange`, `array`, etc.) allocate **device** USM memory on the system's default SYCL device.
+
+```python
+import dpnp as np
+
+# Default: usm_type="device" on the default SYCL device
+a = np.zeros((1024,), dtype=np.float32)
+print(a.usm_type)   # device
+print(a.device)     # Device(level_zero:gpu:0)  (varies by system)
+```
+
+To override the allocation type, pass `usm_type` to any creation function:
+
+```python
+import dpnp as np
+
+device_arr = np.ones((512,), usm_type="device")   # GPU-local
+shared_arr = np.ones((512,), usm_type="shared")   # migrated automatically
+host_arr   = np.ones((512,), usm_type="host")     # CPU memory, device-accessible
+```
+
+## The usm_type attribute
+
+The `usm_type` property on any `dpnp.ndarray` returns a string describing the allocation type of its backing memory:
+
+```python
+import dpnp as np
+
+for t in ("device", "shared", "host"):
+    x = np.zeros(4, usm_type=t)
+    print(f"usm_type={x.usm_type!r}  device={x.device}")
+```
+
+```
+usm_type='device'  device=Device(level_zero:gpu:0)
+usm_type='shared'  device=Device(level_zero:gpu:0)
+usm_type='host'    device=Device(level_zero:gpu:0)
+```
+
+<Info>
+All three USM types are associated with a SYCL device. `"host"` and `"shared"` allocations are device-accessible, but their physical location in memory differs from `"device"` allocations.
+</Info>
+
+## Memory placement rules
+
+DPNP enforces strict placement rules when combining arrays in operations:
+
+<Steps>
+  <Step title="Both inputs must share a compatible queue">
+    When two arrays are used in the same operation, they must have been allocated on the same SYCL device (their `sycl_queue` objects must be compatible). Mixing arrays from different devices in one expression raises an error.
+  </Step>
+
+  <Step title="Output is placed on the same device as the inputs">
+    The result of any DPNP operation is always a new `dpnp.ndarray` with `usm_type="device"` on the same SYCL device as the input arrays. The output USM type follows from the inputs or an explicit `usm_type` parameter if one is accepted.
+  </Step>
+
+  <Step title="Scalar and Python-object operands are promoted">
+    Plain Python scalars and zero-dimensional arrays are broadcast to the device automatically. No host-to-device copy is triggered by an arithmetic expression itself.
+  </Step>
+</Steps>
+
+```python
+import dpnp as np
+
+# Arrays on the same device — allowed
+a = np.ones(5, device="gpu:0")
+b = np.ones(5, device="gpu:0")
+c = a + b  # works fine
+print(c.device)  # Device(level_zero:gpu:0)
+
+# Mixing devices — raises an error
+# a_cpu = np.ones(5, device="cpu:0")
+# bad = a + a_cpu  # ValueError or ExecutionPlacementError
+```
+
+## Moving data between host and device
+
+<Tabs>
+  <Tab title="Copy to NumPy (device → host)">
+    `ndarray.asnumpy()` copies the array from device memory into a new `numpy.ndarray` on the host. This triggers a device-to-host DMA transfer and blocks until it completes.
+
+    ```python
+    import dpnp as np
+
+    x = np.arange(8, dtype=np.float32)  # on GPU
+    x_host = x.asnumpy()               # numpy.ndarray on CPU
+    print(type(x_host))  # <class 'numpy.ndarray'>
+    ```
+  </Tab>
+  <Tab title="Create from NumPy (host → device)">
+    Pass a `numpy.ndarray` (or any array-like) to `dpnp.array()` or `dpnp.asarray()` to copy data onto the device.
+
+    ```python
+    import numpy as np_cpu
+    import dpnp as np
+
+    cpu_arr = np_cpu.arange(8, dtype=np_cpu.float32)  # NumPy array
+
+    # Upload to default device
+    gpu_arr = np.asarray(cpu_arr)
+    print(gpu_arr.usm_type)  # device
+    ```
+  </Tab>
+  <Tab title="Transfer between devices">
+    Use `ndarray.to_device(device)` to move an array to a different SYCL device or to a queue with different properties (such as profiling enabled).
+
+    ```python
+    import dpnp as np
+    import dpctl
+
+    x = np.full(100, 2, dtype=np.int64)
+
+    # Move to a profiling-enabled queue on the same device
+    q_prof = dpctl.SyclQueue(x.sycl_device, property="enable_profiling")
+    y = x.to_device(q_prof)
+    print(y.sycl_queue)
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+`dpnp.ndarray` blocks implicit conversion to NumPy. Calling `numpy.asarray(dpnp_array)` raises `TypeError`. Always use `.asnumpy()` explicitly to make a host copy.
+</Warning>
+
+## dpctl integration for memory management
+
+DPNP relies on `dpctl` for all low-level USM memory operations. You can use `dpctl` directly to inspect and manage allocations when needed.
+
+```python
+import dpnp as np
+import dpctl.memory as dpm
+
+x = np.ones((256,), dtype=np.float32, usm_type="shared")
+
+# Access the underlying USM allocation via the .data property
+mem = x.data          # MemoryUSMShared instance from dpnp.memory
+print(type(mem))      # <class 'dpnp.memory._memory.MemoryUSMShared'>
+print(mem.nbytes)     # 1024  (256 * 4 bytes)
+
+# The sycl_queue is the same as the array's queue
+print(mem.sycl_queue is x.sycl_queue)  # True
+
+# Access the raw USM pointer (integer)
+print(x.data.ptr)
+```
+
+<Tip>
+For maximum GPU throughput, use `usm_type="device"` (the default) for arrays that are only read or written by GPU kernels. Switch to `usm_type="shared"` only when you need to read or write the data from both Python code and GPU kernels in the same workflow without explicit copies.
+</Tip>
+
+## Choosing the right usm_type
+
+| Scenario | Recommended `usm_type` |
+|----------|----------------------|
+| Arrays used exclusively by GPU kernels | `"device"` (default) |
+| Intermediate results in a GPU pipeline | `"device"` |
+| Arrays that are frequently inspected on the host | `"shared"` |
+| Input data that is prepared on CPU and consumed once by the GPU | `"shared"` or copy to `"device"` via `dpnp.asarray()` |
+| Small lookup tables or parameters accessed by both sides | `"host"` or `"shared"` |

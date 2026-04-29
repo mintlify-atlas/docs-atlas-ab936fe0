@@ -1,0 +1,864 @@
+---
+title: "Array creation routines — DPNP reference"
+description: "Complete reference for DPNP array creation functions. Create arrays from shape, value, existing data, numerical ranges, and matrix forms on SYCL devices."
+---
+
+DPNP provides a rich set of array creation functions that mirror the NumPy API while allocating arrays directly in SYCL Unified Shared Memory (USM). Each function accepts `device`, `usm_type`, and `sycl_queue` keyword arguments that control where the array is allocated.
+
+<Note>
+All DPNP array creation functions default to `usm_type="device"`, placing output arrays in device-local memory. Pass `usm_type="shared"` for arrays accessible from both host and device.
+</Note>
+
+---
+
+## Ones and zeros
+
+Functions that create arrays pre-filled with a constant value or with uninitialized contents.
+
+### `dpnp.empty(shape, *, dtype=None, order="C", like=None, device=None, usm_type="device", sycl_queue=None)`
+
+Return a new array of the given shape and type without initializing entries. The contents are whatever happened to be in memory.
+
+**Parameters:**
+- `shape` (int or sequence of ints) — Shape of the new array, e.g. `(2, 3)` or `2`.
+- `dtype` (None, str, or dtype) — Desired data type. Defaults to the device's default floating-point type.
+- `order` (`"C"` or `"F"`) — Row-major or column-major memory layout. Default: `"C"`.
+- `device` (None, str, SyclDevice, SyclQueue, or Device) — Target SYCL device. Default: `None`.
+- `usm_type` (`"device"`, `"shared"`, or `"host"`) — USM allocation type. Default: `"device"`.
+- `sycl_queue` (None or SyclQueue) — Explicit SYCL queue. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Uninitialized array with the given shape.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.empty((3, 3))
+print(x.shape, x.device, x.usm_type)
+# (3, 3) Device(level_zero:gpu:0) device
+
+y = np.empty((3, 3), device="cpu")
+print(y.device)
+# Device(opencl:cpu:0)
+```
+
+---
+
+### `dpnp.empty_like(a, /, *, dtype=None, order="K", subok=False, shape=None, device=None, usm_type=None, sycl_queue=None)`
+
+Return a new array with the same shape and type as a given array, without initializing entries.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Array whose shape and dtype define the output.
+- `dtype` — Override the output data type.
+- `order` (`"C"`, `"F"`, `"A"`, or `"K"`) — Memory layout. Default: `"K"`.
+- `shape` — Override the output shape.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([1, 2, 3])
+b = np.empty_like(a)
+print(b.shape, b.dtype)
+# (3,) int64
+```
+
+---
+
+### `dpnp.zeros(shape, *, dtype=None, order="C", like=None, device=None, usm_type="device", sycl_queue=None)`
+
+Return a new array of the given shape filled with zeros.
+
+**Parameters:**
+- `shape` (int or sequence of ints) — Shape of the output array.
+- `dtype` — Desired data type. Defaults to the device's default floating-point type.
+- `order` (`"C"` or `"F"`) — Memory layout. Default: `"C"`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.zeros(5)
+# array([0., 0., 0., 0., 0.])
+
+np.zeros((2, 3), dtype=np.int32)
+# array([[0, 0, 0],
+#        [0, 0, 0]], dtype=int32)
+```
+
+---
+
+### `dpnp.zeros_like(a, /, *, dtype=None, order="K", subok=False, shape=None, device=None, usm_type=None, sycl_queue=None)`
+
+Return an array of zeros with the same shape and type as a given array.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.arange(6)
+np.zeros_like(x)
+# array([0, 0, 0, 0, 0, 0])
+```
+
+---
+
+### `dpnp.ones(shape, *, dtype=None, order="C", like=None, device=None, usm_type="device", sycl_queue=None)`
+
+Return a new array of the given shape filled with ones.
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.ones(5)
+# array([1., 1., 1., 1., 1.])
+
+np.ones((2, 1))
+# array([[1.],
+#        [1.]])
+```
+
+---
+
+### `dpnp.ones_like(a, /, *, dtype=None, order="K", subok=False, shape=None, device=None, usm_type=None, sycl_queue=None)`
+
+Return an array of ones with the same shape and type as a given array.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.arange(6)
+np.ones_like(x)
+# array([1, 1, 1, 1, 1, 1])
+```
+
+---
+
+### `dpnp.full(shape, fill_value, *, dtype=None, order="C", like=None, device=None, usm_type=None, sycl_queue=None)`
+
+Return a new array of the given shape filled with `fill_value`.
+
+**Parameters:**
+- `shape` (int or sequence of ints) — Shape of the output array.
+- `fill_value` (scalar or array_like) — Fill value.
+- `dtype` — Data type of the output. Inferred from `fill_value` if `None`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.full(4, 10)
+# array([10, 10, 10, 10])
+
+np.full((2, 3), 3.14)
+# array([[3.14, 3.14, 3.14],
+#        [3.14, 3.14, 3.14]])
+```
+
+---
+
+### `dpnp.full_like(a, /, fill_value, *, dtype=None, order="K", subok=False, shape=None, device=None, usm_type=None, sycl_queue=None)`
+
+Return a full array with the same shape and type as a given array.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.arange(6)
+np.full_like(a, 1)
+# array([1, 1, 1, 1, 1, 1])
+```
+
+---
+
+### `dpnp.eye(N, /, M=None, k=0, dtype=None, order="C", *, like=None, device=None, usm_type="device", sycl_queue=None)`
+
+Return a 2-D array with ones on a diagonal and zeros elsewhere.
+
+**Parameters:**
+- `N` (int) — Number of rows.
+- `M` (int, optional) — Number of columns. Defaults to `N`.
+- `k` (int) — Index of the diagonal. `0` is the main diagonal, positive values are upper diagonals, negative are lower. Default: `0`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.eye(2, dtype=int)
+# array([[1, 0],
+#        [0, 1]])
+
+np.eye(3, k=1)
+# array([[0., 1., 0.],
+#        [0., 0., 1.],
+#        [0., 0., 0.]])
+```
+
+---
+
+### `dpnp.identity(n, /, dtype=None, *, like=None, device=None, usm_type="device", sycl_queue=None)`
+
+Return the square identity array — ones on the main diagonal and zeros elsewhere.
+
+**Parameters:**
+- `n` (int) — Number of rows and columns.
+
+**Returns:** `dpnp.ndarray` — `n × n` identity array.
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.identity(3)
+# array([[1., 0., 0.],
+#        [0., 1., 0.],
+#        [0., 0., 1.]])
+```
+
+---
+
+## From existing data
+
+Functions that convert Python objects, buffers, or files into DPNP arrays.
+
+### `dpnp.array(a, dtype=None, *, copy=True, order="K", subok=False, ndmin=0, like=None, device=None, usm_type=None, sycl_queue=None)`
+
+Create a DPNP array from input data.
+
+**Parameters:**
+- `a` (array_like) — Input data: scalars, lists, tuples, nested sequences, or ndarrays.
+- `dtype` — Desired data type. Inferred if `None`.
+- `copy` (bool or None) — Whether to copy data. `True` always copies, `None` copies only if needed, `False` raises `ValueError` if a copy is unavoidable. Default: `True`.
+- `order` (`"C"`, `"F"`, `"A"`, or `"K"`) — Memory layout. Default: `"K"`.
+- `ndmin` (int) — Minimum number of dimensions. Default: `0`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.array([1, 2, 3])
+# array([1, 2, 3])
+
+np.array([[1, 2], [3, 4]])
+# array([[1, 2],
+#        [3, 4]])
+
+np.array([1, 2, 3], ndmin=2)
+# array([[1, 2, 3]])
+
+np.array([1, 2, 3], dtype=complex)
+# array([1.+0.j, 2.+0.j, 3.+0.j])
+```
+
+---
+
+### `dpnp.asarray(a, dtype=None, order=None, *, device=None, usm_type=None, sycl_queue=None, copy=None, like=None)`
+
+Convert input to a DPNP array. No copy is made if `a` is already an ndarray with matching dtype and order.
+
+**Parameters:**
+- `a` (array_like) — Input data.
+- `dtype` — Target data type.
+- `order` — Memory layout.
+- `copy` (bool or None) — Copy behavior. Default: `None` (copy only if needed).
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.asarray([1, 2, 3])
+# array([1, 2, 3])
+```
+
+---
+
+### `dpnp.asanyarray(a, dtype=None, order=None, *, like=None, device=None, usm_type=None, sycl_queue=None)`
+
+Convert input to a `dpnp.ndarray`. In DPNP, this behaves the same as `asarray` since subclasses are not supported.
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.asanyarray([1, 2, 3])
+# array([1, 2, 3])
+```
+
+---
+
+### `dpnp.ascontiguousarray(a, dtype=None, *, like=None, device=None, usm_type=None, sycl_queue=None)`
+
+Return a contiguous C-order array in memory (`ndim >= 1`).
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.ones((2, 3), order='F')
+y = np.ascontiguousarray(x)
+print(y.flags['C_CONTIGUOUS'])
+# True
+```
+
+---
+
+### `dpnp.asfortranarray(a, dtype=None, *, like=None, device=None, usm_type=None, sycl_queue=None)`
+
+Return an array laid out in Fortran (column-major) order in memory (`ndim >= 1`).
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.ones((2, 3), order='C')
+y = np.asfortranarray(x)
+print(y.flags['F_CONTIGUOUS'])
+# True
+```
+
+---
+
+### `dpnp.copy(a, order="K", subok=False, device=None, usm_type=None, sycl_queue=None)`
+
+Return an array copy of the given object.
+
+**Parameters:**
+- `a` (array_like) — Input data.
+- `order` (`"C"`, `"F"`, `"A"`, or `"K"`) — Memory layout of the copy. Default: `"K"`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.array([1, 2, 3])
+z = np.copy(x)
+x[0] = 10
+print(x[0] == z[0])  # array(False) — z is independent
+```
+
+---
+
+### `dpnp.from_dlpack(x, /, *, device=None, copy=None)`
+
+Construct a DPNP array from an object implementing `__dlpack__`.
+
+**Parameters:**
+- `x` (object) — Any object implementing the DLPack protocol.
+- `device` — Target device. `None` keeps data on the same device.
+- `copy` (bool or None) — `True` always copies, `False` raises if copy needed, `None` copies only if needed.
+
+**Returns:** `dpnp.ndarray` or `numpy.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+import numpy
+
+x = numpy.arange(10)
+y = np.from_dlpack(x)   # zero-copy view of the numpy array
+```
+
+---
+
+### `dpnp.frombuffer(buffer, dtype=float, count=-1, offset=0, *, like=None, device=None, usm_type="device", sycl_queue=None)`
+
+Interpret a buffer as a 1-dimensional array.
+
+**Parameters:**
+- `buffer` (buffer_like) — Object exposing the buffer interface.
+- `dtype` — Data type of the returned array. Default: `float`.
+- `count` (int) — Number of items to read. `-1` reads all. Default: `-1`.
+- `offset` (int) — Start reading from this byte offset. Default: `0`.
+
+**Returns:** `dpnp.ndarray` — 1-D array.
+
+**Example:**
+
+```python
+import dpnp as np
+
+s = b'\x01\x02\x03\x04'
+np.frombuffer(s, dtype=np.int32)
+# array([67305985], dtype=int32)
+```
+
+---
+
+### `dpnp.fromfunction(function, shape, *, dtype=float, like=None, device=None, usm_type="device", sycl_queue=None, **kwargs)`
+
+Construct an array by executing a function over each coordinate.
+
+**Parameters:**
+- `function` (callable) — Called with N parameters for each coordinate dimension.
+- `shape` (tuple of ints) — Shape of the output array.
+- `dtype` — Data type of the coordinate arrays passed to `function`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.fromfunction(lambda i, j: i + j, (3, 3), dtype=int)
+# array([[0, 1, 2],
+#        [1, 2, 3],
+#        [2, 3, 4]])
+```
+
+---
+
+### `dpnp.fromiter(iter, dtype, count=-1, *, like=None, device=None, usm_type="device", sycl_queue=None)`
+
+Create a new 1-D array from an iterable object.
+
+**Parameters:**
+- `iter` (iterable) — An iterable providing data.
+- `dtype` (required) — Data type of the returned array.
+- `count` (int) — Number of items to read. `-1` reads all. Default: `-1`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+iterable = (a * a for a in range(5))
+np.fromiter(iterable, float)
+# array([ 0.,  1.,  4.,  9., 16.])
+```
+
+---
+
+### `dpnp.fromstring(string, dtype=float, count=-1, *, sep, like=None, device=None, usm_type="device", sycl_queue=None)`
+
+Create a 1-D array from text data in a string.
+
+**Parameters:**
+- `string` (str) — String containing the data.
+- `dtype` — Data type.
+- `count` (int) — Number of elements to read.
+- `sep` (str, required) — String separating numbers in the data.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.fromstring('1 2', dtype=int, sep=' ')
+# array([1, 2])
+np.fromstring('1, 2', dtype=int, sep=',')
+# array([1, 2])
+```
+
+---
+
+### `dpnp.fromfile(file, dtype=float, count=-1, sep="", offset=0, *, like=None, device=None, usm_type="device", sycl_queue=None)`
+
+Construct an array from data in a text or binary file.
+
+**Parameters:**
+- `file` (file, str, or Path) — Open file object or filename.
+- `dtype` — Data type of the returned array.
+- `count` (int) — Number of items to read. `-1` reads all.
+- `sep` (str) — Separator for text files. Empty string means binary.
+- `offset` (int) — Byte offset from the current file position. Binary only.
+
+**Returns:** `dpnp.ndarray`
+
+---
+
+### `dpnp.loadtxt(fname, dtype=float, like=None, device=None, usm_type="device", sycl_queue=None, **kwargs)`
+
+Load data from a text file.
+
+**Parameters:**
+- `fname` (file, str, Path, list, or generator) — File or filename to read.
+- `dtype` — Data type of the resulting array. Default: `float`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+from io import StringIO
+
+c = StringIO("0 1\n2 3")
+np.loadtxt(c)
+# array([[0., 1.],
+#        [2., 3.]])
+```
+
+---
+
+## Numerical ranges
+
+Functions that generate sequences of numbers.
+
+### `dpnp.arange(start, /, stop=None, step=1, *, dtype=None, like=None, device=None, usm_type="device", sycl_queue=None)`
+
+Return an array with evenly spaced values within a given interval.
+
+**Parameters:**
+- `start` (int or real) — Start of interval (inclusive). Acts as `stop` when called with a single argument.
+- `stop` (int or real) — End of interval (exclusive).
+- `step` (int or real) — Spacing between values. Default: `1`.
+- `dtype` — Output data type. Inferred if `None`.
+
+**Returns:** `dpnp.ndarray` — 1-D array of evenly spaced values.
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.arange(3)
+# array([0, 1, 2])
+
+np.arange(3, 7)
+# array([3, 4, 5, 6])
+
+np.arange(3, 7, 2)
+# array([3, 5])
+
+np.arange(3, device="cpu")
+# array([0, 1, 2]) on CPU device
+```
+
+---
+
+### `dpnp.linspace(start, stop, /, num, *, dtype=None, device=None, usm_type=None, sycl_queue=None, endpoint=True, retstep=False, axis=0)`
+
+Return evenly spaced numbers over a specified interval.
+
+**Parameters:**
+- `start` (array_like) — Starting value of the sequence.
+- `stop` (array_like) — End value.
+- `num` (int, required) — Number of samples. Must be non-negative.
+- `endpoint` (bool) — If `True`, `stop` is the last sample. Default: `True`.
+- `retstep` (bool) — If `True`, also return the step size. Default: `False`.
+- `axis` (int) — Axis in the result to store samples. Default: `0`.
+
+**Returns:** `dpnp.ndarray` (and optionally the step size if `retstep=True`)
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.linspace(2.0, 3.0, num=5)
+# array([2.  , 2.25, 2.5 , 2.75, 3.  ])
+
+np.linspace(2.0, 3.0, num=5, endpoint=False)
+# array([2. , 2.2, 2.4, 2.6, 2.8])
+
+samples, step = np.linspace(2.0, 3.0, num=5, retstep=True)
+```
+
+---
+
+### `dpnp.logspace(start, stop, /, num=50, *, device=None, usm_type=None, sycl_queue=None, endpoint=True, base=10.0, dtype=None, axis=0)`
+
+Return numbers spaced evenly on a log scale.
+
+**Parameters:**
+- `start` (array_like) — `base ** start` is the starting value.
+- `stop` (array_like) — `base ** stop` is the final value.
+- `num` (int) — Number of samples. Default: `50`.
+- `base` (array_like) — Base of the logarithm. Default: `10.0`.
+- `endpoint` (bool) — Include `stop` in the output. Default: `True`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.logspace(2.0, 3.0, num=4)
+# array([ 100.        ,  215.443469  ,  464.15888336, 1000.        ])
+
+np.logspace(2.0, 3.0, num=4, base=2.0)
+# array([4.        , 5.0396842 , 6.34960421, 8.        ])
+```
+
+---
+
+### `dpnp.geomspace(start, stop, /, num=50, *, dtype=None, device=None, usm_type=None, sycl_queue=None, endpoint=True, axis=0)`
+
+Return numbers spaced evenly on a log scale as a geometric progression.
+
+**Parameters:**
+- `start` (array_like) — Starting value.
+- `stop` (array_like) — Final value.
+- `num` (int) — Number of samples. Default: `50`.
+- `endpoint` (bool) — Include `stop`. Default: `True`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.geomspace(1, 1000, num=4)
+# array([   1.,   10.,  100., 1000.])
+
+np.geomspace(1, 256, num=9)
+# array([  1.,   2.,   4.,   8.,  16.,  32.,  64., 128., 256.])
+```
+
+---
+
+### `dpnp.meshgrid(*xi, copy=True, sparse=False, indexing="xy")`
+
+Return coordinate matrices from coordinate vectors.
+
+**Parameters:**
+- `*xi` (dpnp.ndarray) — 1-D arrays representing grid coordinates.
+- `indexing` (`"xy"` or `"ij"`) — Cartesian or matrix indexing. Default: `"xy"`.
+- `sparse` (bool) — Return sparse arrays to conserve memory. Default: `False`.
+- `copy` (bool) — Copy input arrays. Default: `True`.
+
+**Returns:** list of `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.linspace(0, 1, 3)
+y = np.linspace(0, 1, 2)
+xv, yv = np.meshgrid(x, y)
+print(xv)
+# array([[0. , 0.5, 1. ],
+#        [0. , 0.5, 1. ]])
+```
+
+---
+
+### `dpnp.mgrid`
+
+Instance of `MGridClass`. Use slice notation to construct a dense multi-dimensional meshgrid.
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.mgrid[0:3, 0:3]
+# Returns a 2x3x3 array with row and column indices
+```
+
+---
+
+### `dpnp.ogrid`
+
+Instance of `OGridClass`. Use slice notation to construct an open (sparse) multi-dimensional meshgrid.
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.ogrid[0:5, 0:5]
+# Returns a list of two arrays with shapes (5, 1) and (1, 5)
+```
+
+---
+
+## Matrix and triangular arrays
+
+Functions that create structured matrix forms.
+
+### `dpnp.diag(v, /, k=0, *, device=None, usm_type=None, sycl_queue=None)`
+
+Extract a diagonal from a 2-D array, or construct a diagonal 2-D array from a 1-D array.
+
+**Parameters:**
+- `v` (array_like) — 1-D input creates a 2-D diagonal array. 2-D input extracts a diagonal.
+- `k` (int) — Diagonal offset. `0` is the main diagonal, positive is above, negative is below. Default: `0`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.arange(9).reshape((3, 3))
+np.diag(x)
+# array([0, 4, 8])
+
+np.diag(x, k=1)
+# array([1, 5])
+
+np.diag(np.array([1, 2, 3]))
+# array([[1, 0, 0],
+#        [0, 2, 0],
+#        [0, 0, 3]])
+```
+
+---
+
+### `dpnp.diagflat(v, /, k=0, *, device=None, usm_type=None, sycl_queue=None)`
+
+Create a 2-D array with the flattened input as a diagonal.
+
+**Parameters:**
+- `v` (array_like) — Input array, flattened and placed on the k-th diagonal.
+- `k` (int) — Diagonal index. Default: `0`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.diagflat([[1, 2], [3, 4]])
+# array([[1, 0, 0, 0],
+#        [0, 2, 0, 0],
+#        [0, 0, 3, 0],
+#        [0, 0, 0, 4]])
+```
+
+---
+
+### `dpnp.tri(N, /, M=None, k=0, dtype=float, *, device=None, usm_type="device", sycl_queue=None)`
+
+An array with ones at and below the given diagonal and zeros elsewhere.
+
+**Parameters:**
+- `N` (int) — Number of rows.
+- `M` (int, optional) — Number of columns. Defaults to `N`.
+- `k` (int) — The sub-diagonal at and below which the array is filled. Default: `0`.
+- `dtype` — Data type. Default: `float`.
+
+**Returns:** `dpnp.ndarray` of shape `(N, M)`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.tri(3, 5, 2, dtype=int)
+# array([[1, 1, 1, 0, 0],
+#        [1, 1, 1, 1, 0],
+#        [1, 1, 1, 1, 1]])
+```
+
+---
+
+### `dpnp.tril(m, /, *, k=0)`
+
+Return the lower triangle of an array — elements above the k-th diagonal are zeroed.
+
+**Parameters:**
+- `m` (dpnp.ndarray or usm_ndarray) — Input array, shape `(..., M, N)`.
+- `k` (int) — Diagonal above which to zero elements. Default: `0`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+m = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]])
+np.tril(m, k=-1)
+# array([[ 0,  0,  0],
+#        [ 4,  0,  0],
+#        [ 7,  8,  0],
+#        [10, 11, 12]])
+```
+
+---
+
+### `dpnp.triu(m, /, *, k=0)`
+
+Return the upper triangle of an array — elements below the k-th diagonal are zeroed.
+
+**Example:**
+
+```python
+import dpnp as np
+
+m = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]])
+np.triu(m, k=-1)
+# array([[ 1,  2,  3],
+#        [ 4,  5,  6],
+#        [ 0,  8,  9],
+#        [ 0,  0, 12]])
+```
+
+---
+
+### `dpnp.vander(x, /, N=None, increasing=False, *, device=None, usm_type=None, sycl_queue=None)`
+
+Generate a Vandermonde matrix.
+
+**Parameters:**
+- `x` (array_like) — 1-D input array.
+- `N` (int, optional) — Number of columns. Defaults to `len(x)`.
+- `increasing` (bool) — If `True`, powers increase left to right. Default: `False`.
+
+**Returns:** `dpnp.ndarray` — Vandermonde matrix.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.array([1, 2, 3, 5])
+np.vander(x, 3)
+# array([[ 1,  1,  1],
+#        [ 4,  2,  1],
+#        [ 9,  3,  1],
+#        [25,  5,  1]])
+
+np.vander(x, increasing=True)
+# array([[  1,   1,   1,   1],
+#        [  1,   2,   4,   8],
+#        [  1,   3,   9,  27],
+#        [  1,   5,  25, 125]])
+```

@@ -1,0 +1,873 @@
+---
+title: "Array manipulation routines — DPNP reference"
+description: "Full reference for DPNP array manipulation: reshape, transpose, stack, split, flip, roll, and more. All functions target SYCL devices."
+---
+
+DPNP's array manipulation functions let you change shapes, reorder axes, join or split arrays, and add or remove elements — all while keeping data on the target SYCL device. Most functions return views where possible, avoiding unnecessary copies.
+
+---
+
+## Changing shape
+
+### `dpnp.reshape(a, /, newshape, order="C")`
+
+Give an array a new shape without changing its data.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Array to reshape.
+- `newshape` (int or sequence of ints) — Target shape. One dimension may be `-1` and will be inferred.
+- `order` (`"C"`, `"F"`, or `"A"`) — Index order for reading/writing elements. Default: `"C"`.
+
+**Returns:** `dpnp.ndarray` — A view if possible, otherwise a copy.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.arange(6)
+np.reshape(a, (2, 3))
+# array([[0, 1, 2],
+#        [3, 4, 5]])
+
+np.reshape(a, (3, -1))
+# array([[0, 1],
+#        [2, 3],
+#        [4, 5]])
+```
+
+---
+
+### `dpnp.ravel(a, order="C")`
+
+Return a contiguous flattened 1-D array. A copy is made only if needed.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `order` (`"C"`, `"F"`, `"A"`, or `"K"`) — Element ordering. Default: `"C"`.
+
+**Returns:** `dpnp.ndarray` — 1-D array.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.array([[1, 2, 3], [4, 5, 6]])
+np.ravel(x)
+# array([1, 2, 3, 4, 5, 6])
+```
+
+---
+
+### `dpnp.squeeze(a, axis=None)`
+
+Remove axes of length one from an array.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `axis` (None, int, or tuple of ints) — Specific axes to remove. Raises `ValueError` if a selected axis has size other than one. Default: removes all size-1 axes.
+
+**Returns:** `dpnp.ndarray` — A view.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.array([[[0], [1], [2]]])
+print(x.shape)     # (1, 3, 1)
+np.squeeze(x).shape
+# (3,)
+
+np.squeeze(x, axis=0).shape
+# (3, 1)
+```
+
+---
+
+### `dpnp.expand_dims(a, axis)`
+
+Insert a new axis into an array, expanding its shape.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `axis` (int or tuple of ints) — Position(s) where the new axis is inserted.
+
+**Returns:** `dpnp.ndarray` — A view where possible.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.array([1, 2])   # shape (2,)
+
+np.expand_dims(x, axis=0)
+# array([[1, 2]])  shape (1, 2)
+
+np.expand_dims(x, axis=1)
+# array([[1],
+#        [2]])     shape (2, 1)
+```
+
+---
+
+### `dpnp.resize(a, new_shape)`
+
+Return a new array with the given shape.
+
+Unlike `reshape`, data is repeated to fill the new shape if necessary.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `new_shape` (int or sequence of ints) — Target shape.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([[0, 1], [2, 3]])
+np.resize(a, (2, 3))
+# array([[0, 1, 2],
+#        [3, 0, 1]])
+```
+
+---
+
+## Transpose operations
+
+### `dpnp.transpose(a, axes=None)`
+
+Reverse or permute the axes of an array.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `axes` (None or sequence of ints) — Permutation of axis indices. `None` reverses all axes. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — A view.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.array([[1, 2], [3, 4]])
+np.transpose(x)
+# array([[1, 3],
+#        [2, 4]])
+
+x = np.ones((1, 2, 3))
+np.transpose(x, (2, 0, 1)).shape
+# (3, 1, 2)
+```
+
+---
+
+### `dpnp.moveaxis(a, source, destination)`
+
+Move axes of an array to new positions; other axes remain in their original order.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `source` (int or sequence of ints) — Original positions of the axes to move.
+- `destination` (int or sequence of ints) — Destination positions.
+
+**Returns:** `dpnp.ndarray` — A view.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.zeros((3, 4, 5))
+np.moveaxis(x, 0, -1).shape
+# (4, 5, 3)
+
+np.moveaxis(x, [0, 1], [-1, -2]).shape
+# (5, 4, 3)
+```
+
+---
+
+### `dpnp.rollaxis(a, axis, start=0)`
+
+Roll the specified axis backwards until it lies in a given position.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `axis` (int) — Axis to roll.
+- `start` (int) — Where the axis should end up. Default: `0`.
+
+**Returns:** `dpnp.ndarray` — A view.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.ones((3, 4, 5, 6))
+np.rollaxis(a, 3, 1).shape
+# (3, 6, 4, 5)
+```
+
+---
+
+### `dpnp.swapaxes(a, axis1, axis2)`
+
+Interchange two axes of an array.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `axis1` (int) — First axis.
+- `axis2` (int) — Second axis.
+
+**Returns:** `dpnp.ndarray` — A view.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.array([[1, 2, 3]])
+np.swapaxes(x, 0, 1)
+# array([[1],
+#        [2],
+#        [3]])
+```
+
+---
+
+### `dpnp.atleast_1d(*arys)`
+
+Convert inputs to arrays with at least one dimension. 0-D arrays are reshaped to `(1,)`.
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.atleast_1d(np.array(1.0))
+# array([1.])
+
+np.atleast_1d(np.array([3, 4]))
+# array([3, 4])
+```
+
+---
+
+### `dpnp.atleast_2d(*arys)`
+
+View inputs as arrays with at least two dimensions.
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.atleast_2d(np.array(3.0))
+# array([[3.]])
+
+np.atleast_2d(np.arange(3.0))
+# array([[0., 1., 2.]])
+```
+
+---
+
+### `dpnp.atleast_3d(*arys)`
+
+View inputs as arrays with at least three dimensions.
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.atleast_3d(np.array(3.0))
+# array([[[3.]]])
+
+np.atleast_3d(np.arange(3.0)).shape
+# (1, 3, 1)
+```
+
+---
+
+## Joining and splitting arrays
+
+### `dpnp.concatenate(arrays, /, *, axis=0, out=None, dtype=None, casting="same_kind")`
+
+Join a sequence of arrays along an existing axis.
+
+**Parameters:**
+- `arrays` (sequence of dpnp.ndarray) — Arrays to join. All must have the same shape except along `axis`.
+- `axis` (int or None) — Axis along which to concatenate. `None` flattens all input arrays first. Default: `0`.
+- `out` (dpnp.ndarray, optional) — Destination array.
+- `dtype` — Output data type. Cannot be used together with `out`.
+- `casting` — Data casting rule. Default: `"same_kind"`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([[1, 2], [3, 4]])
+b = np.array([[5, 6]])
+np.concatenate((a, b), axis=0)
+# array([[1, 2],
+#        [3, 4],
+#        [5, 6]])
+
+np.concatenate((a, b.T), axis=1)
+# array([[1, 2, 5],
+#        [3, 4, 6]])
+```
+
+---
+
+### `dpnp.stack(arrays, axis=0, out=None)`
+
+Join a sequence of arrays along a **new** axis.
+
+**Parameters:**
+- `arrays` (sequence of dpnp.ndarray) — Arrays to stack. Must have the same shape.
+- `axis` (int) — Position in the result array where the new axis is inserted. Default: `0`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([1, 2, 3])
+b = np.array([4, 5, 6])
+np.stack([a, b])
+# array([[1, 2, 3],
+#        [4, 5, 6]])
+
+np.stack([a, b], axis=1)
+# array([[1, 4],
+#        [2, 5],
+#        [3, 6]])
+```
+
+---
+
+### `dpnp.vstack(tup)`
+
+Stack arrays in sequence vertically (row wise). Equivalent to `concatenate` along axis 0 after at least 2-D.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([1, 2, 3])
+b = np.array([4, 5, 6])
+np.vstack([a, b])
+# array([[1, 2, 3],
+#        [4, 5, 6]])
+```
+
+---
+
+### `dpnp.hstack(tup)`
+
+Stack arrays in sequence horizontally (column wise).
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([[1], [2], [3]])
+b = np.array([[4], [5], [6]])
+np.hstack([a, b])
+# array([[1, 4],
+#        [2, 5],
+#        [3, 6]])
+```
+
+---
+
+### `dpnp.dstack(tup)`
+
+Stack arrays depth wise (along the third axis).
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([1, 2, 3])
+b = np.array([4, 5, 6])
+np.dstack([a, b])
+# array([[[1, 4],
+#          [2, 5],
+#          [3, 6]]])
+```
+
+---
+
+### `dpnp.column_stack(tup)`
+
+Stack 1-D and 2-D arrays as columns into a 2-D array.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([1, 2, 3])
+b = np.array([4, 5, 6])
+np.column_stack([a, b])
+# array([[1, 4],
+#        [2, 5],
+#        [3, 6]])
+```
+
+---
+
+### `dpnp.split(ary, indices_or_sections, axis=0)`
+
+Split an array into multiple sub-arrays of equal size.
+
+**Parameters:**
+- `ary` (dpnp.ndarray or usm_ndarray) — Array to split.
+- `indices_or_sections` (int or sequence of ints) — If int, number of equal sections; raises `ValueError` if not divisible. If sequence, indices at which to split.
+- `axis` (int) — Axis along which to split. Default: `0`.
+
+**Returns:** list of `dpnp.ndarray` — Each is a view.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.arange(9)
+np.split(x, 3)
+# [array([0, 1, 2]), array([3, 4, 5]), array([6, 7, 8])]
+
+np.split(x, [3, 6])
+# [array([0, 1, 2]), array([3, 4, 5]), array([6, 7, 8])]
+```
+
+---
+
+### `dpnp.array_split(ary, indices_or_sections, axis=0)`
+
+Like `split`, but allows unequal-sized sub-arrays when `indices_or_sections` does not evenly divide the axis.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.arange(8.0)
+np.array_split(x, 3)
+# [array([0., 1., 2.]), array([3., 4., 5.]), array([6., 7.])]
+```
+
+---
+
+### `dpnp.vsplit(ary, indices_or_sections)`
+
+Split an array into multiple sub-arrays vertically (row wise). Equivalent to `split` with `axis=0`.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.arange(16).reshape(4, 4)
+np.vsplit(x, 2)
+# [array([[0,  1,  2,  3], [4,  5,  6,  7]]),
+#  array([[8,  9, 10, 11], [12, 13, 14, 15]])]
+```
+
+---
+
+### `dpnp.hsplit(ary, indices_or_sections)`
+
+Split an array into multiple sub-arrays horizontally (column wise). Equivalent to `split` with `axis=1`.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.arange(16).reshape(4, 4)
+np.hsplit(x, 2)
+# [array([[0,  1], [4,  5], [8,  9], [12, 13]]),
+#  array([[2,  3], [6,  7], [10, 11], [14, 15]])]
+```
+
+---
+
+### `dpnp.dsplit(ary, indices_or_sections)`
+
+Split an array along the third axis (depth). Array must be at least 3-D. Equivalent to `split` with `axis=2`.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.arange(16.0).reshape(2, 2, 4)
+np.dsplit(x, 2)
+# List of two (2, 2, 2) arrays
+```
+
+---
+
+## Adding and removing elements
+
+### `dpnp.append(arr, values, axis=None)`
+
+Append values to the end of an array.
+
+**Parameters:**
+- `arr` (dpnp.ndarray or usm_ndarray) — Input array.
+- `values` (scalar or array_like) — Values to append. Flattened if `axis` is `None`.
+- `axis` (int or None) — Axis along which to append. If `None`, both arrays are flattened. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — A copy.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([1, 2, 3])
+np.append(a, [[4, 5, 6], [7, 8, 9]])
+# array([1, 2, 3, 4, 5, 6, 7, 8, 9])
+```
+
+---
+
+### `dpnp.delete(arr, obj, axis=None)`
+
+Return a new array with sub-arrays along an axis deleted.
+
+**Parameters:**
+- `arr` (dpnp.ndarray or usm_ndarray) — Input array.
+- `obj` (slice, int, or array-like of ints or booleans) — Indices of sub-arrays to remove.
+- `axis` (int or None) — Axis along which to delete. If `None`, operates on the flattened array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — A copy.
+
+**Example:**
+
+```python
+import dpnp as np
+
+arr = np.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]])
+np.delete(arr, 1, 0)
+# array([[ 1,  2,  3,  4],
+#        [ 9, 10, 11, 12]])
+```
+
+---
+
+### `dpnp.insert(arr, obj, values, axis=None)`
+
+Insert values along the given axis before the given indices.
+
+**Parameters:**
+- `arr` (dpnp.ndarray or usm_ndarray) — Input array.
+- `obj` (int, slice, or array-like of ints) — Indices before which `values` are inserted.
+- `values` (array_like) — Values to insert.
+- `axis` (int or None) — Axis along which to insert. If `None`, flattens the array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — A copy.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([1, 2, 3])
+np.insert(a, 1, 5)
+# array([1, 5, 2, 3])
+```
+
+---
+
+### `dpnp.unique(ar, return_index=False, return_inverse=False, return_counts=False, axis=None, *, equal_nan=True)`
+
+Find the unique elements of an array.
+
+**Parameters:**
+- `ar` (dpnp.ndarray or usm_ndarray) — Input array.
+- `return_index` (bool) — Also return the indices of first occurrences.
+- `return_inverse` (bool) — Also return inverse index array.
+- `return_counts` (bool) — Also return counts of unique values.
+- `axis` (int or None) — Axis along which to find unique values. Default: `None` (flattened).
+- `equal_nan` (bool) — Collapse multiple NaN values to one. Default: `True`.
+
+**Returns:** `dpnp.ndarray` or tuple of arrays.
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.unique(np.array([1, 1, 2, 2, 3, 3]))
+# array([1, 2, 3])
+
+vals, counts = np.unique(np.array([1, 2, 2, 3, 3, 3]), return_counts=True)
+# vals = array([1, 2, 3]), counts = array([1, 2, 3])
+```
+
+---
+
+### `dpnp.broadcast_to(array, /, shape, subok=False)`
+
+Broadcast an array to a new shape.
+
+**Parameters:**
+- `array` (dpnp.ndarray or usm_ndarray) — Array to broadcast.
+- `shape` (int or tuple of ints) — Target shape. Must be compatible with `array.shape`.
+
+**Returns:** `dpnp.ndarray` — Read-only view.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.array([1, 2, 3])
+np.broadcast_to(x, (3, 3))
+# array([[1, 2, 3],
+#        [1, 2, 3],
+#        [1, 2, 3]])
+```
+
+---
+
+### `dpnp.broadcast_arrays(*args, subok=False)`
+
+Broadcast any number of arrays against each other.
+
+**Returns:** list of `dpnp.ndarray` — Views on the original arrays.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.array([[1, 2, 3]])
+y = np.array([[4], [5]])
+np.broadcast_arrays(x, y)
+# [array([[1, 2, 3], [1, 2, 3]]), array([[4, 4, 4], [5, 5, 5]])]
+```
+
+---
+
+### `dpnp.copyto(dst, src, casting="same_kind", where=True)`
+
+Copy values from `src` into `dst`, broadcasting as necessary.
+
+**Parameters:**
+- `dst` (dpnp.ndarray or usm_ndarray) — Destination array.
+- `src` (array_like) — Source array or scalar.
+- `casting` — Controls type casting. Default: `"same_kind"`.
+- `where` (bool or bool array) — Mask selecting elements to copy. Default: `True`.
+
+**Example:**
+
+```python
+import dpnp as np
+
+A = np.array([4, 5, 6])
+np.copyto(A, [1, 2, 3])
+print(A)
+# array([1, 2, 3])
+```
+
+---
+
+### `dpnp.tile(A, reps)`
+
+Construct an array by repeating `A` the number of times given by `reps`.
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.tile(np.array([1, 2]), 3)
+# array([1, 2, 1, 2, 1, 2])
+
+np.tile(np.array([[1, 2], [3, 4]]), (2, 1))
+# array([[1, 2],
+#        [3, 4],
+#        [1, 2],
+#        [3, 4]])
+```
+
+---
+
+### `dpnp.repeat(a, repeats, axis=None)`
+
+Repeat elements of an array.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `repeats` (int or array of ints) — Number of repetitions per element.
+- `axis` (int or None) — Axis along which to repeat. If `None`, uses the flattened array. Default: `None`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.repeat(np.array([3]), 4)
+# array([3, 3, 3, 3])
+
+np.repeat(np.array([[1, 2], [3, 4]]), 2, axis=1)
+# array([[1, 1, 2, 2],
+#        [3, 3, 4, 4]])
+```
+
+---
+
+### `dpnp.flip(m, axis=None)`
+
+Reverse the order of elements in an array along the given axis.
+
+**Parameters:**
+- `m` (dpnp.ndarray or usm_ndarray) — Input array.
+- `axis` (None, int, or tuple of ints) — Axis or axes to flip. Default: `None` flips all axes.
+
+**Returns:** `dpnp.ndarray` — A view.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([[1, 2], [3, 4]])
+np.flip(a)
+# array([[4, 3],
+#        [2, 1]])
+
+np.flip(a, axis=0)
+# array([[3, 4],
+#        [1, 2]])
+```
+
+---
+
+### `dpnp.fliplr(m)`
+
+Flip an array left to right (reverse along axis 1).
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.fliplr(np.array([[1, 2], [3, 4]]))
+# array([[2, 1],
+#        [4, 3]])
+```
+
+---
+
+### `dpnp.flipud(m)`
+
+Flip an array upside down (reverse along axis 0).
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.flipud(np.array([[1, 2], [3, 4]]))
+# array([[3, 4],
+#        [1, 2]])
+```
+
+---
+
+### `dpnp.roll(a, shift, axis=None)`
+
+Roll array elements along a given axis. Elements that roll past the edge reappear at the other side.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `shift` (int or tuple of ints) — Number of places to shift. Negative shifts left/up.
+- `axis` (None, int, or tuple of ints) — Axis or axes along which to roll. Default: `None` (flattened).
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.arange(10)
+np.roll(x, 2)
+# array([8, 9, 0, 1, 2, 3, 4, 5, 6, 7])
+
+np.roll(x, -2)
+# array([2, 3, 4, 5, 6, 7, 8, 9, 0, 1])
+```
+
+---
+
+### `dpnp.rot90(m, k=1, axes=(0, 1))`
+
+Rotate an array by 90 degrees in the plane specified by `axes`.
+
+**Parameters:**
+- `m` (dpnp.ndarray or usm_ndarray) — Input array with `ndim >= 2`.
+- `k` (int) — Number of 90-degree rotations. Default: `1`.
+- `axes` (tuple of 2 ints) — Plane of rotation. Default: `(0, 1)`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+m = np.array([[1, 2], [3, 4]])
+np.rot90(m)
+# array([[2, 4],
+#        [1, 3]])
+
+np.rot90(m, 2)
+# array([[4, 3],
+#        [2, 1]])
+```
+
+---
+
+### `dpnp.trim_zeros(filt, trim="fb")`
+
+Trim leading and/or trailing zeros from a 1-D array.
+
+**Parameters:**
+- `filt` (dpnp.ndarray or usm_ndarray) — 1-D input array.
+- `trim` (str) — `"f"` to trim only leading, `"b"` to trim only trailing, `"fb"` for both. Default: `"fb"`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([0, 0, 1, 0, 2, 0, 0])
+np.trim_zeros(a)
+# array([1, 0, 2])
+```

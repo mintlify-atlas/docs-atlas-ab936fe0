@@ -1,0 +1,228 @@
+---
+title: "Data types (dtypes) in DPNP"
+description: "DPNP's NumPy-compatible dtype system: supported types, type aliases, GPU constraints, type casting with astype(), and using dtype= in array creation functions."
+---
+
+DPNP uses the same dtype system as NumPy: every array has a homogeneous element type represented by a `numpy.dtype` object. All DPNP dtype identifiers are re-exported directly from NumPy, so code that already uses `numpy.float32`, `numpy.int64`, and similar names works without modification. The main practical difference is that certain types have limited or no hardware support on some GPU devices, and the default floating-point type may vary based on the capabilities of the active SYCL device.
+
+## Supported dtypes
+
+The table below lists every dtype exported by `dpnp`. These are direct aliases to their NumPy counterparts.
+
+### Boolean
+
+| DPNP name | NumPy equivalent | Description |
+|-----------|-----------------|-------------|
+| `dpnp.bool_` | `numpy.bool_` | Boolean (True / False), stored as a byte |
+| `dpnp.bool` | `numpy.bool_` | Alias for `bool_` |
+
+### Signed integers
+
+| DPNP name | NumPy equivalent | Bits | Range |
+|-----------|-----------------|------|-------|
+| `dpnp.int8` | `numpy.int8` | 8 | −128 to 127 |
+| `dpnp.int16` | `numpy.int16` | 16 | −32 768 to 32 767 |
+| `dpnp.int32` | `numpy.int32` | 32 | −2 147 483 648 to 2 147 483 647 |
+| `dpnp.int64` | `numpy.int64` | 64 | −9.2×10¹⁸ to 9.2×10¹⁸ |
+| `dpnp.byte` | `numpy.byte` | 8 | Same as `int8` |
+| `dpnp.short` | `numpy.short` | 16 | Same as `int16` |
+| `dpnp.intc` | `numpy.intc` | 32 | C `int` |
+| `dpnp.int_` | `numpy.int_` | platform | Default Python int |
+| `dpnp.intp` | `numpy.intp` | pointer | Used for indexing |
+| `dpnp.longlong` | `numpy.longlong` | 64 | C `long long` |
+
+### Unsigned integers
+
+| DPNP name | NumPy equivalent | Bits |
+|-----------|-----------------|------|
+| `dpnp.uint8` | `numpy.uint8` | 8 |
+| `dpnp.uint16` | `numpy.uint16` | 16 |
+| `dpnp.uint32` | `numpy.uint32` | 32 |
+| `dpnp.uint64` | `numpy.uint64` | 64 |
+| `dpnp.ubyte` | `numpy.ubyte` | 8 |
+| `dpnp.ushort` | `numpy.ushort` | 16 |
+| `dpnp.uintc` | `numpy.uintc` | 32 |
+| `dpnp.uintp` | `numpy.uintp` | pointer |
+| `dpnp.ulonglong` | `numpy.ulonglong` | 64 |
+
+### Floating-point
+
+| DPNP name | NumPy equivalent | Bits | Notes |
+|-----------|-----------------|------|-------|
+| `dpnp.float16` | `numpy.float16` | 16 | Half precision — hardware support varies |
+| `dpnp.float32` | `numpy.float32` | 32 | Single precision |
+| `dpnp.float64` | `numpy.float64` | 64 | Double precision |
+
+### Complex
+
+| DPNP name | NumPy equivalent | Bits | Component type |
+|-----------|-----------------|------|---------------|
+| `dpnp.complex64` | `numpy.complex64` | 64 | Two `float32` components |
+| `dpnp.complex128` | `numpy.complex128` | 128 | Two `float64` components |
+
+### Abstract base types
+
+These are useful for `dpnp.issubdtype()` and `dpnp.isdtype()` checks.
+
+| DPNP name | Description |
+|-----------|-------------|
+| `dpnp.integer` | All integer types |
+| `dpnp.signedinteger` | Signed integers only |
+| `dpnp.unsignedinteger` | Unsigned integers only |
+| `dpnp.floating` | Real floating-point types |
+| `dpnp.complexfloating` | Complex floating-point types |
+| `dpnp.inexact` | All floating-point and complex types |
+| `dpnp.number` | All numeric types |
+
+## Type aliases
+
+Several shorter aliases are available for the most common types:
+
+| Alias | Full type | Note |
+|-------|-----------|------|
+| `dpnp.single` | `dpnp.float32` | C `float` |
+| `dpnp.double` | `dpnp.float64` | C `double` |
+| `dpnp.csingle` | `dpnp.complex64` | C `complex float` |
+| `dpnp.cdouble` | `dpnp.complex128` | C `complex double` |
+
+```python
+import dpnp as np
+
+# These are equivalent
+a = np.array([1.0, 2.0], dtype=np.float32)
+b = np.array([1.0, 2.0], dtype=np.single)
+
+# Check dtype
+print(a.dtype == b.dtype)  # True
+```
+
+## GPU dtype considerations
+
+<Warning>
+Not all dtypes are supported on all SYCL devices. The capabilities of the active device determine what is available at runtime.
+</Warning>
+
+### float16 (half precision)
+
+`float16` support depends on the `has_aspect_fp16` aspect of the SYCL device. Intel Arc and many Xe-based GPUs support `float16` natively; older or embedded GPUs may not.
+
+```python
+import dpnp as np
+import dpctl
+
+device = dpctl.select_default_device()
+print("fp16 supported:", device.has_aspect_fp16)
+
+if device.has_aspect_fp16:
+    a = np.ones((1024,), dtype=np.float16)
+else:
+    # fall back to float32
+    a = np.ones((1024,), dtype=np.float32)
+```
+
+### float64 and complex128 (double precision)
+
+Double-precision support depends on the `has_aspect_fp64` aspect. Integrated GPUs sometimes lack native `float64` support and may emulate it in software, leading to reduced performance.
+
+```python
+import dpctl
+
+device = dpctl.select_default_device()
+print("fp64 supported:", device.has_aspect_fp64)
+```
+
+<Info>
+When `dpnp.default_float_type()` is called without arguments, it returns `float64` if the active device supports it, and falls back to `float32` otherwise. Array creation functions like `dpnp.zeros()` with no explicit `dtype` follow the same rule.
+</Info>
+
+### complex types
+
+`complex64` is composed of two `float32` components and is always available where `float32` is. `complex128` requires `float64` support (see above).
+
+## Type casting with astype()
+
+Use `ndarray.astype(dtype)` to cast an existing array to a new dtype. The cast returns a new array by default.
+
+```python
+import dpnp as np
+
+x = np.array([1.7, 2.3, 3.9], dtype=np.float64)
+
+# Cast to integer (truncates, does not round)
+xi = x.astype(np.int32)
+print(xi)  # array([1, 2, 3], dtype=int32)
+
+# Cast to float16
+xh = x.astype(np.float16)
+print(xh)  # array([1.7, 2.3, 3.9], dtype=float16)
+
+# Avoid a copy when the dtype already matches
+y = x.astype(np.float64, copy=False)
+print(y is x)  # True — no copy was made
+```
+
+The `casting` parameter controls what conversions are permitted:
+
+| Value | Meaning |
+|-------|---------|
+| `"no"` | Data types must be identical |
+| `"equiv"` | Only byte-order changes are allowed |
+| `"safe"` | Only value-preserving casts |
+| `"same_kind"` | Safe casts or within-kind casts (e.g. `float64` → `float32`) |
+| `"unsafe"` | Any conversion (default) |
+
+```python
+import dpnp as np
+
+x = np.array([1.5, 2.5])
+
+# "safe" cast: float64 → float32 is within the same kind,
+# but float64 → int32 would raise under "safe"
+y = x.astype(np.float32, casting="same_kind")
+```
+
+## Using dtype= in array creation
+
+Every DPNP array creation function accepts a `dtype` keyword argument:
+
+```python
+import dpnp as np
+
+# Explicit dtype
+a = np.zeros((4, 4), dtype=np.float32)
+b = np.ones((10,), dtype=np.int64)
+c = np.arange(0, 1, 0.1, dtype=np.float32)
+d = np.full((3,), fill_value=2+3j, dtype=np.complex64)
+
+# dtype can be a string
+e = np.empty((5,), dtype="float16")
+
+# dtype can be a numpy.dtype object
+dt = np.dtype(np.float32)
+f = np.zeros(10, dtype=dt)
+```
+
+<Tip>
+When performance is a priority, prefer `float32` over `float64`. GPU hardware typically executes single-precision arithmetic significantly faster than double-precision, especially on consumer-grade Intel Arc and Xe GPUs.
+</Tip>
+
+## Inspecting dtype limits
+
+Use `dpnp.finfo()` for floating-point types and `dpnp.iinfo()` for integer types:
+
+```python
+import dpnp as np
+
+fi = np.finfo(np.float32)
+print(fi.max)        # 3.4028235e+38
+print(fi.eps)        # 1.1920929e-07
+print(fi.bits)       # 32
+
+ii = np.iinfo(np.int16)
+print(ii.max)        # 32767
+print(ii.min)        # -32768
+
+# Check dtype kind
+print(np.issubdtype(np.float32, np.floating))    # True
+print(np.isdtype(np.complex128, "complex floating"))  # True
+```

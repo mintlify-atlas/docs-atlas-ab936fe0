@@ -1,0 +1,461 @@
+---
+title: "FFT routines — dpnp.fft reference"
+description: "dpnp.fft reference: GPU-accelerated FFT via Intel oneMKL — standard, real, Hermitian, and N-dimensional transforms with frequency and shift helpers."
+---
+
+The `dpnp.fft` module provides GPU-accelerated Discrete Fourier Transform (DFT) routines built on Intel's oneMKL FFT backend. All functions accept `dpnp.ndarray` or `usm_ndarray` inputs, keeping data on the SYCL device throughout the computation. The API mirrors `numpy.fft`, making migration straightforward.
+
+**Normalization modes** apply consistently across the module. The `norm` parameter accepts:
+- `None` or `"backward"` — divide by `n` in the inverse transform (default)
+- `"forward"` — divide by `n` in the forward transform
+- `"ortho"` — divide by `sqrt(n)` in both directions
+
+## Standard FFTs
+
+### `dpnp.fft.fft(a, n=None, axis=-1, norm=None, out=None)`
+
+Computes the one-dimensional discrete Fourier Transform.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array, can be complex.
+- `n` (int, optional) — Length of the transformed axis. If smaller than the input length, the input is cropped; if larger, zero-padded. Default: `None` (use input length).
+- `axis` (int, optional) — Axis over which to compute the FFT. Default: `-1` (last axis).
+- `norm` (str, optional) — Normalization mode: `None`, `"backward"`, `"ortho"`, or `"forward"`. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output array of complex dtype. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of complex dtype — The transformed array.
+
+```python
+import dpnp as np
+
+a = np.exp(2j * np.pi * np.arange(8) / 8)
+result = np.fft.fft(a)
+# array([-3.44e-16+1.14e-17j,  8.0+0.j, ...])
+```
+
+---
+
+### `dpnp.fft.ifft(a, n=None, axis=-1, norm=None, out=None)`
+
+Computes the one-dimensional inverse discrete Fourier Transform. Satisfies `ifft(fft(a)) == a` to within numerical accuracy.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array, can be complex.
+- `n` (int, optional) — Length of the transformed axis. Default: `None`.
+- `axis` (int, optional) — Axis to transform. Default: `-1`.
+- `norm` (str, optional) — Normalization mode. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of complex dtype — The inverse-transformed array.
+
+```python
+import dpnp as np
+
+a = np.array([0, 4, 0, 0])
+np.fft.ifft(a)
+# array([ 1.+0.j,  0.+1.j, -1.+0.j,  0.-1.j])
+```
+
+---
+
+### `dpnp.fft.fft2(a, s=None, axes=(-2, -1), norm=None, out=None)`
+
+Computes the 2-dimensional discrete Fourier Transform over the last two axes by default.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array, can be complex.
+- `s` (sequence of ints, optional) — Shape of the output along the transformed axes. If `None`, uses input shape. Default: `None`.
+- `axes` (sequence of ints, optional) — Axes over which to compute the 2-D FFT. Default: `(-2, -1)`.
+- `norm` (str, optional) — Normalization mode. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of complex dtype — The 2-D transformed array.
+
+```python
+import dpnp as np
+
+a = np.mgrid[:5, :5][0]
+np.fft.fft2(a)
+# array([[ 50.+0.j,   0.+0.j, ...], ...])
+```
+
+---
+
+### `dpnp.fft.ifft2(a, s=None, axes=(-2, -1), norm=None, out=None)`
+
+Computes the 2-dimensional inverse discrete Fourier Transform.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array, can be complex.
+- `s` (sequence of ints, optional) — Output shape along transformed axes. Default: `None`.
+- `axes` (sequence of ints, optional) — Axes to transform. Default: `(-2, -1)`.
+- `norm` (str, optional) — Normalization mode. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of complex dtype — The 2-D inverse-transformed array.
+
+```python
+import dpnp as np
+
+a = 4 * np.eye(4)
+np.fft.ifft2(a)
+# array([[1.+0.j,  0.+0.j,  0.+0.j,  0.+0.j], ...])
+```
+
+---
+
+### `dpnp.fft.fftn(a, s=None, axes=None, norm=None, out=None)`
+
+Computes the N-dimensional discrete Fourier Transform over any axes in an M-dimensional array.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array, can be complex.
+- `s` (sequence of ints, optional) — Shape of each transformed axis. If `None`, uses input shape. Default: `None`.
+- `axes` (sequence of ints, optional) — Axes over which to compute the N-D FFT. If `None`, transforms over all axes. Default: `None`.
+- `norm` (str, optional) — Normalization mode. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of complex dtype — The N-D transformed array.
+
+```python
+import dpnp as np
+
+a = np.mgrid[:3, :3, :3][0]
+np.fft.fftn(a, axes=(1, 2))
+# array([[[ 0.+0.j, ...], ...], ...])
+```
+
+---
+
+### `dpnp.fft.ifftn(a, s=None, axes=None, norm=None, out=None)`
+
+Computes the N-dimensional inverse discrete Fourier Transform.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array, can be complex.
+- `s` (sequence of ints, optional) — Output shape along transformed axes. Default: `None`.
+- `axes` (sequence of ints, optional) — Axes to transform. Default: `None`.
+- `norm` (str, optional) — Normalization mode. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of complex dtype — The N-D inverse-transformed array.
+
+```python
+import dpnp as np
+
+a = np.eye(4)
+np.fft.ifftn(np.fft.fftn(a, axes=(0,)), axes=(1,))
+# array([[1.+0.j,  0.+0.j, ...], ...])
+```
+
+---
+
+## Real FFTs
+
+### `dpnp.fft.rfft(a, n=None, axis=-1, norm=None, out=None)`
+
+Computes the one-dimensional FFT for real-valued input. Exploits Hermitian symmetry: output has length `n//2 + 1`.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Real-valued input array.
+- `n` (int, optional) — Number of points in the transformed axis. Default: `None` (use input length).
+- `axis` (int, optional) — Axis to transform. Default: `-1`.
+- `norm` (str, optional) — Normalization mode. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output array of complex dtype. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of complex dtype — Non-redundant half of the DFT, shape `(..., n//2+1, ...)`.
+
+```python
+import dpnp as np
+
+x = np.array([1.0, 2.0, 3.0, 4.0])
+np.fft.rfft(x)
+# array([10.+0.j, -2.+2.j, -2.+0.j])
+```
+
+---
+
+### `dpnp.fft.irfft(a, n=None, axis=-1, norm=None, out=None)`
+
+Computes the inverse of `rfft`. Output is real-valued. Pass `n` to specify the output length, as it cannot be inferred from the input alone.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Complex-valued input (as returned by `rfft`).
+- `n` (int, optional) — Length of the output. Default: `None` (`2*(m-1)` where `m` is input length).
+- `axis` (int, optional) — Axis to transform. Default: `-1`.
+- `norm` (str, optional) — Normalization mode. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Real-valued inverse FFT output.
+
+```python
+import dpnp as np
+
+a = np.array([1.0, 2.0, 3.0, 4.0])
+A = np.fft.rfft(a)
+np.fft.irfft(A, n=len(a))
+# array([1., 2., 3., 4.])
+```
+
+---
+
+### `dpnp.fft.rfft2(a, s=None, axes=(-2, -1), norm=None, out=None)`
+
+Computes the 2-dimensional FFT for real-valued input. The output has the Hermitian-reduced shape along the last transformed axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Real-valued input array.
+- `s` (sequence of ints, optional) — Output shape along transformed axes. Default: `None`.
+- `axes` (sequence of ints, optional) — Axes to transform. Default: `(-2, -1)`.
+- `norm` (str, optional) — Normalization mode. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of complex dtype — 2-D real FFT result.
+
+```python
+import dpnp as np
+
+a = np.mgrid[:5, :5][0].astype(float)
+A = np.fft.rfft2(a)
+```
+
+---
+
+### `dpnp.fft.irfft2(a, s=None, axes=(-2, -1), norm=None, out=None)`
+
+Computes the inverse of `rfft2`. Specify `s` to recover the original shape exactly.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Complex-valued input as returned by `rfft2`.
+- `s` (sequence of ints, optional) — Output shape. Default: `None`.
+- `axes` (sequence of ints, optional) — Axes to transform. Default: `(-2, -1)`.
+- `norm` (str, optional) — Normalization mode. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Real-valued 2-D inverse FFT.
+
+```python
+import dpnp as np
+
+a = np.mgrid[:5, :5][0].astype(float)
+A = np.fft.rfft2(a)
+np.fft.irfft2(A, s=a.shape)
+# recovers original array
+```
+
+---
+
+### `dpnp.fft.rfftn(a, s=None, axes=None, norm=None, out=None)`
+
+Computes the N-dimensional FFT for real-valued input.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Real-valued input array.
+- `s` (sequence of ints, optional) — Shape of transformed axes. Default: `None`.
+- `axes` (sequence of ints, optional) — Axes to transform. Default: `None` (all axes).
+- `norm` (str, optional) — Normalization mode. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of complex dtype — N-D real FFT result with Hermitian-reduced last axis.
+
+```python
+import dpnp as np
+
+a = np.ones((2, 3, 4))
+np.fft.rfftn(a).shape
+# (2, 3, 3)  # last axis is n//2+1 = 3
+```
+
+---
+
+### `dpnp.fft.irfftn(a, s=None, axes=None, norm=None, out=None)`
+
+Computes the inverse of `rfftn`. Always returns real-valued output.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Complex-valued input as returned by `rfftn`.
+- `s` (sequence of ints, optional) — Output shape (required to recover exact original shape). Default: `None`.
+- `axes` (sequence of ints, optional) — Axes to transform. Default: `None`.
+- `norm` (str, optional) — Normalization mode. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Real-valued N-D inverse FFT output.
+
+```python
+import dpnp as np
+
+a = np.ones((2, 3, 4))
+A = np.fft.rfftn(a)
+np.fft.irfftn(A, s=a.shape)
+# recovers original array of shape (2, 3, 4)
+```
+
+---
+
+## Hermitian FFTs
+
+### `dpnp.fft.hfft(a, n=None, axis=-1, norm=None, out=None)`
+
+Computes the FFT of a signal that has Hermitian symmetry (real spectrum). The output length is `n` (must be specified if an odd number of output points is desired).
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array with Hermitian symmetry (typically the first `n//2 + 1` complex elements of the spectrum).
+- `n` (int, optional) — Length of the output. Default: `None` (`2*(m-1)` where `m` is input length).
+- `axis` (int, optional) — Axis to transform. Default: `-1`.
+- `norm` (str, optional) — Normalization mode. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Real-valued FFT output.
+
+```python
+import dpnp as np
+
+signal = np.array([1, 2, 3, 4, 3, 2])
+np.fft.hfft(signal[:4])  # uses first half
+# array([15., -4.,  0., -1.,  0., -4.])
+```
+
+---
+
+### `dpnp.fft.ihfft(a, n=None, axis=-1, norm=None, out=None)`
+
+Computes the inverse FFT of a signal with a real spectrum (Hermitian input in frequency domain). Inverse of `hfft`.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array (real spectrum).
+- `n` (int, optional) — Number of input points. Default: `None`.
+- `axis` (int, optional) — Axis to transform. Default: `-1`.
+- `norm` (str, optional) — Normalization mode. Default: `"backward"`.
+- `out` (dpnp.ndarray, optional) — Output complex array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of complex dtype — Half-spectrum with shape `(..., n//2+1, ...)`.
+
+```python
+import dpnp as np
+
+spectrum = np.array([15., -4., 0., -1., 0., -4.])
+np.fft.ihfft(spectrum)
+# array([1.-0.j, 2.-0.j, 3.-0.j, 4.-0.j])
+```
+
+---
+
+## Helper routines
+
+### `dpnp.fft.fftfreq(n, /, d=1.0, *, dtype=None, device=None, usm_type=None, sycl_queue=None)`
+
+Returns the Discrete Fourier Transform sample frequencies.
+
+**Parameters:**
+- `n` (int) — Window length.
+- `d` (scalar, optional) — Sample spacing (inverse of the sampling rate). Default: `1.0`.
+- `dtype` (dtype, optional) — Output array data type (must be real-valued floating-point). Default: `None`.
+- `device` (str, SyclDevice, or SyclQueue, optional) — Device for output array allocation. Default: `None`.
+- `usm_type` (str, optional) — USM allocation type: `"device"`, `"shared"`, or `"host"`. Default: `None`.
+- `sycl_queue` (SyclQueue, optional) — SYCL queue. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Array of `n` frequency bin centers.
+
+Formula:
+- Even `n`: `[0, 1, ..., n/2-1, -n/2, ..., -1] / (d*n)`
+- Odd `n`: `[0, 1, ..., (n-1)/2, -(n-1)/2, ..., -1] / (d*n)`
+
+```python
+import dpnp as np
+
+signal = np.array([-2, 8, 6, 4, 1, 0, 3, 5])
+n = signal.size
+timestep = 0.1
+freq = np.fft.fftfreq(n, d=timestep)
+# array([ 0.  ,  1.25,  2.5 ,  3.75, -5.  , -3.75, -2.5 , -1.25])
+```
+
+---
+
+### `dpnp.fft.rfftfreq(n, /, d=1.0, *, dtype=None, device=None, usm_type=None, sycl_queue=None)`
+
+Returns the Discrete Fourier Transform sample frequencies for use with `rfft` and `irfft`. Only non-negative frequencies are returned.
+
+**Parameters:**
+- `n` (int) — Window length.
+- `d` (scalar, optional) — Sample spacing. Default: `1.0`.
+- `dtype` (dtype, optional) — Output data type. Default: `None`.
+- `device` (str, SyclDevice, or SyclQueue, optional) — Device for array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Array of `n//2 + 1` non-negative frequency bin centers.
+
+```python
+import dpnp as np
+
+np.fft.rfftfreq(8, d=0.1)
+# array([0.  , 1.25, 2.5 , 3.75, 5.  ])
+```
+
+---
+
+### `dpnp.fft.fftshift(x, axes=None)`
+
+Shifts the zero-frequency component to the center of the spectrum. Swaps the two halves of each axis.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+- `axes` (None, int, or sequence of ints, optional) — Axes over which to shift. Default: `None` (all axes).
+
+**Returns:** `dpnp.ndarray` — The shifted array.
+
+```python
+import dpnp as np
+
+freqs = np.fft.fftfreq(10, 0.1)
+# array([ 0.,  1.,  2.,  3.,  4., -5., -4., -3., -2., -1.])
+np.fft.fftshift(freqs)
+# array([-5., -4., -3., -2., -1.,  0.,  1.,  2.,  3.,  4.])
+```
+
+---
+
+### `dpnp.fft.ifftshift(x, axes=None)`
+
+Inverse of `fftshift`. Shifts zero-frequency component back to the beginning of the spectrum.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+- `axes` (None, int, or sequence of ints, optional) — Axes over which to shift. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — The unshifted array.
+
+```python
+import dpnp as np
+
+freqs = np.fft.fftfreq(9, d=1.0 / 9).reshape(3, 3)
+np.fft.ifftshift(np.fft.fftshift(freqs))
+# array([[ 0.,  1.,  2.],
+#        [ 3.,  4., -4.],
+#        [-3., -2., -1.]])
+```
+
+---
+
+## Real-world example: frequency analysis on the GPU
+
+The following example computes the dominant frequency of a sampled sine wave entirely on the GPU without transferring data to the host.
+
+```python
+import dpnp as np
+
+# Create a 1 kHz sine wave sampled at 8 kHz for 1 second
+sample_rate = 8000
+duration = 1.0
+t = np.arange(int(sample_rate * duration)) / sample_rate
+signal = np.sin(2 * np.pi * 1000 * t)
+
+# Compute FFT and find the dominant frequency
+spectrum = np.fft.rfft(signal)
+freqs = np.fft.rfftfreq(len(signal), d=1.0 / sample_rate)
+dominant_freq = freqs[np.argmax(np.abs(spectrum))]
+
+print(f"Dominant frequency: {float(dominant_freq):.1f} Hz")
+# Dominant frequency: 1000.0 Hz
+```
+
+This pipeline keeps data on the SYCL device throughout. Use `fftshift` to center the spectrum for display, or apply windowing (e.g., multiply by a Hanning window) before calling `fft` to reduce spectral leakage.

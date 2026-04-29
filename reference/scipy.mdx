@@ -1,0 +1,258 @@
+---
+title: "SciPy-compatible routines — dpnp.scipy"
+description: "GPU-accelerated SciPy-compatible submodules for DPNP. Covers dpnp.scipy.linalg (LU decomposition) and dpnp.scipy.special (error functions via oneMKL VM)."
+---
+
+The `dpnp.scipy` namespace provides submodules that replicate parts of the SciPy API on top of DPNP functionality, dispatching to oneMKL and dedicated SYCL kernels wherever possible. The interface is intentionally compatible with SciPy so that code can be migrated to GPU execution with minimal changes.
+
+```python
+from dpnp.scipy import linalg as la
+from dpnp.scipy import special
+```
+
+<Note>
+  `dpnp.scipy` covers a subset of SciPy. Currently supported submodules are
+  `dpnp.scipy.linalg` (LU decomposition routines) and `dpnp.scipy.special`
+  (error function family). Additional functions will be added in future releases.
+</Note>
+
+---
+
+## dpnp.scipy.linalg
+
+The `dpnp.scipy.linalg` submodule provides SciPy-compatible linear algebra routines backed by oneMKL LAPACK, operating directly on SYCL device arrays.
+
+```python
+from dpnp.scipy import linalg as la
+```
+
+**Currently supported:** `lu`, `lu_factor`, `lu_solve`.
+
+Compare with SciPy usage:
+
+```python
+# SciPy (CPU)
+from scipy.linalg import lu_factor, lu_solve
+lu, piv = lu_factor(A_cpu)
+x = lu_solve((lu, piv), b_cpu)
+
+# DPNP (GPU/CPU via SYCL)
+import dpnp as np
+from dpnp.scipy import linalg as la
+A = np.array([[2., 5.], [5., 2.]])
+b = np.array([1., 1.])
+lu, piv = la.lu_factor(A)
+x = la.lu_solve((lu, piv), b)
+```
+
+---
+
+### `dpnp.scipy.linalg.lu(a, permute_l=False, overwrite_a=False, check_finite=True, p_indices=False)`
+
+Compute the LU decomposition of a matrix with partial pivoting. The decomposition satisfies `A = P @ L @ U`.
+
+**Parameters:**
+- `a` `(..., M, N)` (dpnp.ndarray) — Input array to decompose.
+- `permute_l` (bool, default `False`) — Return `P @ L` combined instead of separate `P` and `L`.
+- `overwrite_a` (bool, default `False`) — Overwrite `a` for potential performance gain.
+- `check_finite` (bool, default `True`) — Check that the input contains only finite numbers.
+- `p_indices` (bool, default `False`) — Return permutation as row indices instead of a matrix.
+
+**Returns:**
+- When `permute_l=False` (default): tuple `(p, l, u)` where `p` is the permutation matrix (or indices if `p_indices=True`), `l` is lower triangular `(..., M, K)`, and `u` is upper triangular `(..., K, N)`.
+- When `permute_l=True`: tuple `(pl, u)` where `pl = P @ L`.
+
+```python
+import dpnp as np
+from dpnp.scipy import linalg as la
+
+A = np.array([[2, 5, 8, 7], [5, 2, 2, 8],
+              [7, 5, 6, 6], [5, 4, 4, 8]], dtype=np.float64)
+
+# Standard decomposition
+p, l, u = la.lu(A)
+np.allclose(A, p @ l @ u)
+# array(True)
+
+# Return permutation as row indices
+p, l, u = la.lu(A, p_indices=True)
+np.allclose(A, l[p] @ u)
+# array(True)
+
+# Permuted L variant
+pl, u = la.lu(A, permute_l=True)
+np.allclose(A, pl @ u)
+# array(True)
+```
+
+---
+
+### `dpnp.scipy.linalg.lu_factor(a, overwrite_a=False, check_finite=True)`
+
+Compute the pivoted LU decomposition of `a` in compact form suitable for `lu_solve`. Returns `(lu, piv)` where `lu` stores `L` in its lower triangle (unit diagonal not stored) and `U` in its upper triangle.
+
+**Parameters:**
+- `a` `(..., M, N)` (dpnp.ndarray) — Input array to decompose.
+- `overwrite_a` (bool, default `False`) — Overwrite `a` for potential performance gain.
+- `check_finite` (bool, default `True`) — Validate that inputs are finite.
+
+**Returns:**
+- `lu` `(..., M, N)` (dpnp.ndarray) — Combined `L/U` matrix.
+- `piv` `(..., K)` (dpnp.ndarray) — Pivot indices; `K = min(M, N)`. Row `i` was interchanged with row `piv[i]`.
+
+```python
+import dpnp as np
+from dpnp.scipy import linalg as la
+
+a = np.array([[4., 3.], [6., 3.]])
+lu, piv = la.lu_factor(a)
+# lu:  array([[6.        , 3.        ],
+#             [0.66666667, 1.        ]])
+# piv: array([1, 1])
+```
+
+---
+
+### `dpnp.scipy.linalg.lu_solve(lu_and_piv, b, trans=0, overwrite_b=False, check_finite=True)`
+
+Solve a linear system `a x = b` given the LU factorization of `a` from `lu_factor`.
+
+**Parameters:**
+- `lu_and_piv` (tuple of dpnp.ndarray) — Output of `lu_factor`: `(lu, piv)`.
+- `b` `{(M,), (..., M, K)}` (dpnp.ndarray) — Right-hand side.
+- `trans` (`0` | `1` | `2`, default `0`) — System type: `0` = `a x = b`, `1` = `aᵀ x = b`, `2` = `aᴴ x = b`.
+- `overwrite_b` (bool, default `False`) — Overwrite `b` for potential performance gain.
+- `check_finite` (bool, default `True`) — Validate that inputs are finite.
+
+**Returns:** `{(M,), (..., M, K)} dpnp.ndarray` — Solution `x`.
+
+```python
+import dpnp as np
+from dpnp.scipy import linalg as la
+
+A = np.array([[2, 5, 8, 7], [5, 2, 2, 8],
+              [7, 5, 6, 6], [5, 4, 4, 8]], dtype=np.float64)
+b = np.array([1., 1., 1., 1.])
+
+lu, piv = la.lu_factor(A)
+x = la.lu_solve((lu, piv), b)
+np.allclose(A @ x, b)
+# array(True)
+```
+
+---
+
+## dpnp.scipy.special
+
+The `dpnp.scipy.special` submodule provides special mathematical functions on SYCL device arrays. Implementations use oneMKL Vector Math (VM) via a pybind11 extension, dedicated SYCL kernels, or NumPy fallback as appropriate.
+
+```python
+from dpnp.scipy import special
+```
+
+**Currently supported:** `erf`, `erfc`, `erfcx`, `erfinv`, `erfcinv`.
+
+All functions in this submodule share the same signature pattern:
+
+```
+function(x, /, out=None) -> dpnp.ndarray
+```
+
+- `x` (dpnp.ndarray) — Real-valued floating-point input array.
+- `out` (dpnp.ndarray or tuple, optional) — Optional output array. Default: `None`.
+
+---
+
+### `dpnp.scipy.special.erf(x, /, out=None)`
+
+Gauss error function: `erf(z) = (2/√π) ∫₀ᶻ exp(−t²) dt`.
+
+**Returns:** `dpnp.ndarray` — Values of `erf(x)`. Output is in `(-1, 1)`.
+
+```python
+import dpnp as np
+from dpnp.scipy import special
+
+x = np.linspace(-3, 3, num=5)
+special.erf(x)
+# array([-0.99997791, -0.96610515,  0.        ,  0.96610515,  0.99997791])
+```
+
+---
+
+### `dpnp.scipy.special.erfc(x, /, out=None)`
+
+Complementary error function: `erfc(x) = 1 - erf(x)`.
+
+**Returns:** `dpnp.ndarray` — Values of `erfc(x)`. Output is in `(0, 2)`.
+
+```python
+import dpnp as np
+from dpnp.scipy import special
+
+x = np.linspace(-3, 3, num=5)
+special.erfc(x)
+```
+
+---
+
+### `dpnp.scipy.special.erfcx(x, /, out=None)`
+
+Scaled complementary error function: `erfcx(x) = exp(x²) · erfc(x)`.
+
+Useful for computing `erfc` of large positive arguments without underflow.
+
+**Returns:** `dpnp.ndarray` — Values of `erfcx(x)`.
+
+```python
+import dpnp as np
+from dpnp.scipy import special
+
+x = np.linspace(-3, 3, num=4)
+special.erfcx(x)
+# array([1.62059889e+04, 5.00898008e+00, 4.27583576e-01, 1.79001151e-01])
+```
+
+---
+
+### `dpnp.scipy.special.erfinv(x, /, out=None)`
+
+Inverse of the Gauss error function: `erfinv(erf(x)) = x`.
+
+**Parameters:**
+- `x` — Input array. Domain: `[-1, 1]`.
+
+**Returns:** `dpnp.ndarray` — Values of `erfinv(x)`. Returns `±inf` at `±1`.
+
+```python
+import dpnp as np
+from dpnp.scipy import special
+
+x = np.linspace(-1.0, 1.0, num=9)
+y = special.erfinv(x)
+# Verify round-trip:
+special.erf(y)
+# array([-1.  , -0.75, -0.5 , -0.25,  0.  ,  0.25,  0.5 ,  0.75,  1.  ])
+```
+
+---
+
+### `dpnp.scipy.special.erfcinv(x, /, out=None)`
+
+Inverse of the complementary error function: `erfcinv(x) = erfinv(1 - x)`.
+
+**Parameters:**
+- `x` — Input array. Domain: `[0, 2]`.
+
+**Returns:** `dpnp.ndarray` — Values of `erfcinv(x)`. Returns `+inf` at `0` and `-inf` at `2`.
+
+```python
+import dpnp as np
+from dpnp.scipy import special
+
+x = np.linspace(0.0, 2.0, num=11)
+y = special.erfcinv(x)
+# Verify round-trip:
+special.erfc(y)
+# array([0. , 0.2, 0.4, 0.6, 0.8, 1. , 1.2, 1.4, 1.6, 1.8, 2. ])
+```

@@ -1,23 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "DPNP",
+  "projectType": "sdk-library",
+  "projectName": "DPNP",
+  "projectDescription": "Data Parallel Extension for NumPy — a drop-in replacement for NumPy that runs on Intel GPUs and other data-parallel devices via SYCL/oneAPI.",
   "theme": "luma",
-  "colors": {
-    "primary": "#0071C5",
-    "light": "#E8F4FB",
-    "dark": "#003C71"
-  },
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/IntelPython/dpnp"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/IntelPython/dpnp"
-    }
-  },
+  "primaryColor": "#0071C5",
+  "lightColor": "#E8F4FB",
+  "darkColor": "#003C71",
   "navigation": {
     "tabs": [
       {
@@ -84,5 +72,27 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "Drop-in NumPy replacement with GPU acceleration via Intel oneAPI/SYCL",
+    "Supports Intel, NVIDIA, and AMD GPUs through SYCL backends",
+    "Python Array API standard compliance",
+    "Optimized with Intel oneMKL for high-performance numerical computing",
+    "Submodules for FFT, linear algebra, random number generation, and SciPy-compatible routines",
+    "USM (Unified Shared Memory) based array model via dpctl integration",
+    "DLPack interoperability for zero-copy tensor sharing",
+    "Python 3.10–3.14 support, available via conda, pip, and Intel Distribution for Python"
+  ],
+  "publicApiSurface": [
+    "dpnp.ndarray",
+    "dpnp.array / dpnp.zeros / dpnp.ones / dpnp.arange / dpnp.linspace",
+    "dpnp.sum / dpnp.mean / dpnp.std / dpnp.var",
+    "dpnp.dot / dpnp.matmul / dpnp.einsum",
+    "dpnp.linalg (eig, svd, solve, inv, qr, cholesky, lstsq, det, norm, ...)",
+    "dpnp.fft (fft, ifft, fft2, rfft, ...)",
+    "dpnp.random (RandomState, normal, uniform, randint, ...)",
+    "dpnp.scipy.linalg / dpnp.scipy.special",
+    "dpnp.asarray / dpnp.from_dlpack / dpnp.astype",
+    "dpnp.get_default_queue / dpnp.select_default_device"
+  ]
 }

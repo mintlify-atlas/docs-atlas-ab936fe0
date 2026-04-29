@@ -1,0 +1,317 @@
+---
+title: "Array searching functions — DPNP reference"
+description: "Reference for DPNP searching functions: argmax, argmin, nanargmax, nanargmin, nonzero, where, searchsorted, extract, count_nonzero, and flatnonzero."
+---
+
+DPNP provides GPU-accelerated searching functions that locate minimum and maximum values, non-zero elements, and positions satisfying conditions. All functions operate entirely on the SYCL device without requiring host-side data copies.
+
+---
+
+## Argument (index) functions
+
+### `dpnp.argmax(a, axis=None, out=None, *, keepdims=False)`
+
+Return the indices of the maximum values along an axis.
+
+In case of multiple occurrences of the maximum value, the index of the first occurrence is returned.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `axis` (int or None) — Axis along which to operate. `None` returns the index into the flattened array. Default: `None`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+- `keepdims` (bool) — If `True`, keep reduced axes as size-1 dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` — Index array. Same shape as `a` with the `axis` dimension removed (or size 1 if `keepdims=True`).
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.arange(6).reshape((2, 3)) + 10
+# array([[10, 11, 12],
+#        [13, 14, 15]])
+
+np.argmax(a)
+# array(5)
+
+np.argmax(a, axis=0)
+# array([1, 1, 1])
+
+np.argmax(a, axis=1)
+# array([2, 2])
+
+np.argmax(a, axis=1, keepdims=True)
+# array([[2],
+#        [2]])
+```
+
+---
+
+### `dpnp.argmin(a, axis=None, out=None, *, keepdims=False)`
+
+Return the indices of the minimum values along an axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `axis` (int or None) — Axis to operate along. Default: `None`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+- `keepdims` (bool) — Retain reduced axes as size-1 dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.arange(6).reshape((2, 3)) + 10
+np.argmin(a)
+# array(0)
+
+np.argmin(a, axis=0)
+# array([0, 0, 0])
+
+np.argmin(a, axis=1)
+# array([0, 0])
+```
+
+---
+
+### `dpnp.nanargmax(a, axis=None, out=None, keepdims=False)`
+
+Return the indices of the maximum values along an axis, ignoring NaN values.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `axis` (int or None) — Axis to reduce. Default: `None`.
+- `out` (dpnp.ndarray, optional) — Output array.
+- `keepdims` (bool) — Keep reduced dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray`
+
+<Warning>
+Raises `ValueError` if a slice contains only NaN values.
+</Warning>
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([[np.nan, 4], [2, 3]])
+np.nanargmax(a)
+# array(1)
+
+np.nanargmax(a, axis=0)
+# array([1, 0])
+```
+
+---
+
+### `dpnp.nanargmin(a, axis=None, out=None, keepdims=False)`
+
+Return the indices of the minimum values along an axis, ignoring NaN values.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `axis` (int or None) — Axis to reduce. Default: `None`.
+- `keepdims` (bool) — Keep reduced dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([[np.nan, 4], [2, 3]])
+np.nanargmin(a)
+# array(2)  (element at flat index 2, value 2.0)
+
+np.nanargmin(a, axis=0)
+# array([1, 1])
+```
+
+---
+
+## Non-zero and condition-based search
+
+### `dpnp.nonzero(a)`
+
+Return the indices of non-zero elements. Returns one index array per dimension.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+
+**Returns:** tuple of `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.array([[3, 0, 0], [0, 4, 0], [5, 6, 0]])
+rows, cols = np.nonzero(x)
+# rows = array([0, 1, 2, 2])
+# cols = array([0, 1, 0, 1])
+
+# Extract the non-zero values:
+x[np.nonzero(x)]
+# array([3, 4, 5, 6])
+
+# Prefer boolean mask indexing when possible:
+a = np.array([1, 0, 2, 0, 3])
+a[a != 0]
+# array([1, 2, 3])
+```
+
+---
+
+### `dpnp.where(condition, x=None, y=None, /, *, order="K", out=None)`
+
+Return elements from `x` or `y` depending on `condition`.
+
+When called with only `condition`, this is shorthand for `dpnp.nonzero(condition)`.
+
+**Parameters:**
+- `condition` (dpnp.ndarray or usm_ndarray) — Boolean condition.
+- `x` (dpnp.ndarray, usm_ndarray, or scalar) — Values when condition is `True`.
+- `y` (dpnp.ndarray, usm_ndarray, or scalar) — Values when condition is `False`.
+- `order` — Memory layout of output. Default: `"K"`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.arange(10)
+np.where(a < 5, a, 10 * a)
+# array([ 0,  1,  2,  3,  4, 50, 60, 70, 80, 90])
+
+# Clip values to the range [3, 7]:
+np.where(a < 3, 3, np.where(a > 7, 7, a))
+# array([3, 3, 3, 3, 4, 5, 6, 7, 7, 7])
+
+# One-argument form (same as nonzero):
+np.where(np.array([True, False, True]))
+# (array([0, 2]),)
+```
+
+---
+
+### `dpnp.searchsorted(a, v, side="left", sorter=None)`
+
+Find indices where elements should be inserted to maintain sorted order.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — 1-D sorted input array. If `sorter` is provided, sorting is not required.
+- `v` (dpnp.ndarray, usm_ndarray, or scalar) — Values to locate.
+- `side` (`"left"` or `"right"`) — Controls whether the leftmost or rightmost valid insertion index is returned. Default: `"left"`.
+- `sorter` (dpnp.ndarray or usm_ndarray, optional) — 1-D index array sorting `a`. Typically the output of `dpnp.argsort`. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Insertion point indices with the same shape as `v`.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([1, 2, 3, 4, 5])
+np.searchsorted(a, 3)
+# array(2)
+
+np.searchsorted(a, 3, side='right')
+# array(3)
+
+np.searchsorted(a, np.array([0, 4, 2]))
+# array([0, 3, 1])
+```
+
+---
+
+### `dpnp.extract(condition, a)`
+
+Return the elements of an array that satisfy a condition.
+
+Equivalent to `dpnp.compress(dpnp.ravel(condition), dpnp.ravel(a))`.
+
+**Parameters:**
+- `condition` (array_like or scalar) — Boolean mask. Non-zero entries select from `a`.
+- `a` (dpnp.ndarray or usm_ndarray) — Input array, same size as `condition`.
+
+**Returns:** `dpnp.ndarray` — 1-D array.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.arange(12).reshape((3, 4))
+condition = np.mod(a, 3) == 0
+np.extract(condition, a)
+# array([0, 3, 6, 9])
+
+# Equivalent boolean indexing:
+a[a % 3 == 0]
+# array([0, 3, 6, 9])
+```
+
+---
+
+### `dpnp.count_nonzero(a, axis=None, keepdims=False)`
+
+Count the number of non-zero elements in an array.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `axis` (int, tuple, or None) — Axis or axes along which to count. `None` counts over all elements. Default: `None`.
+- `keepdims` (bool) — Keep reduced dimensions as size-1. Default: `False`.
+
+**Returns:** int or `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.count_nonzero(np.array([[0, 1, 7], [0, 0, 3]]))
+# 3
+
+np.count_nonzero(np.array([[0, 1, 7], [0, 0, 3]]), axis=0)
+# array([0, 1, 2])
+
+np.count_nonzero(np.array([[0, 1, 7], [0, 0, 3]]), axis=1)
+# array([2, 1])
+```
+
+---
+
+### `dpnp.flatnonzero(a)`
+
+Return indices that are non-zero in the flattened version of `a`.
+
+Equivalent to `dpnp.nonzero(dpnp.ravel(a))[0]`.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` — 1-D index array.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.arange(-2, 3)
+# array([-2, -1,  0,  1,  2])
+
+np.flatnonzero(x)
+# array([0, 1, 3, 4])
+
+# Extract non-zero values:
+x.ravel()[np.flatnonzero(x)]
+# array([-2, -1,  1,  2])
+```

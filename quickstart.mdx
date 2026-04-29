@@ -1,81 +1,154 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
-icon: 'rocket'
+title: "Get started with DPNP in minutes"
+description: "Install DPNP via conda or pip, verify your SYCL device is detected, and run your first GPU-accelerated NumPy array computation in five steps."
 ---
 
-## Get started in three steps
+This guide walks you through installing DPNP, confirming that your device is visible, and running real array computations on a GPU. By the end you will have a working DPNP environment and understand how DPNP's compute-follows-data model routes work automatically to the device where your arrays live.
 
-Get your documentation site running locally and make your first customization.
+<Steps>
+  <Step title="Prerequisites">
+    Before installing DPNP, check that your environment meets the following requirements.
 
-### Step 1: Set up your local environment
+    **Python version**
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    DPNP requires Python 3.10, 3.11, 3.12, 3.13, or 3.14. Verify your version:
 
-### Step 2: Deploy your changes
+    ```bash
+    python --version
+    ```
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    **Hardware and drivers**
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    DPNP runs on any SYCL-capable device. On most Intel laptops with integrated graphics, the required drivers are already installed. To get the latest driver:
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    - Windows: Download from the [Intel Download Center](https://www.intel.com/content/www/us/en/download-center/home.html)
+    - Linux: Install the Intel GPU driver package for your distribution
 
-### Step 3: Go live
+    DPNP falls back to the CPU host device if no GPU is found, so you can still evaluate the library without GPU hardware.
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    **Update your package manager**
+
+    Before installing, update `conda` or `pip` to the latest version:
+
+    <CodeGroup>
+
+    ```bash conda
+    conda update conda
+    ```
+
+    ```bash pip
+    python -m pip install --upgrade pip
+    ```
+
+    </CodeGroup>
+  </Step>
+
+  <Step title="Install DPNP">
+    Install from Intel's official package channel. The recommended approach is conda with the Intel channel paired with conda-forge for dependencies.
+
+    <CodeGroup>
+
+    ```bash conda
+    conda install dpnp -c https://software.repos.intel.com/python/conda/ -c conda-forge --override-channels
+    ```
+
+    ```bash pip
+    python -m pip install --index-url https://software.repos.intel.com/python/pypi dpnp
+    ```
+
+    </CodeGroup>
+
+    Both commands install DPNP along with its dependencies, including the `dpctl` Data Parallel Control Library and all required compiler runtimes and OneMKL.
+
+    <Warning>
+      Packages from the Intel channel are designed to work with dependencies from the **conda-forge** channel. They may not work correctly in environments where packages from the `anaconda` default channel are installed. Use the [miniforge](https://github.com/conda-forge/miniforge) installer for conda/mamba, as it ships with conda-forge as the only default channel.
+    </Warning>
+
+    **Try the bleeding-edge build**
+
+    To test the latest unreleased features, install from Intel's development channel:
+
+    ```bash
+    conda install dpnp -c dppy/label/dev -c https://software.repos.intel.com/python/conda/ -c conda-forge --override-channels
+    ```
+
+    <Note>
+      DPNP is also available as part of the [Intel Distribution for Python](https://www.intel.com/content/www/us/en/developer/tools/oneapi/distribution-for-python.html) (IDP), which bundles it alongside optimized NumPy, SciPy, and other scientific packages. IDP is a good choice if you want a pre-configured environment for Intel hardware.
+    </Note>
+  </Step>
+
+  <Step title="Verify the installation">
+    Confirm that DPNP is installed and that it can detect your SYCL devices:
+
+    ```python
+    import dpnp
+    import dpctl
+
+    print("DPNP version:", dpnp.__version__)
+
+    # List all available SYCL devices
+    for device in dpctl.get_devices():
+        print(device)
+    ```
+
+    You should see at least one device in the output. On a system with an Intel GPU, the output will include a GPU device entry. On a CPU-only system you will see a CPU device.
+  </Step>
+
+  <Step title="Your first array computation">
+    The following example creates an array on the default SYCL device and computes its sum. This is the canonical DPNP hello-world, taken directly from the project examples.
+
+    ```python
+    import dpnp as np
+
+    x = np.asarray([1, 2, 3])
+    print("Array x allocated on the device:", x.device)
+
+    y = np.sum(x)
+
+    print("Result y is located on the device:", y.device)  # Same device as x
+    print("Shape of y is:", y.shape)                        # 0-dimensional array
+    print("y =", y)                                          # Expect 6
+    ```
+
+    Notice that `y.device` matches `x.device`. This is the compute-follows-data guarantee: operations produce results on the same device as their inputs, without any manual data transfer.
+  </Step>
+
+  <Step title="Run a computation on a specific device">
+    You can target a specific device by passing the `device` argument to any array constructor. The example below requests GPU execution and gracefully falls back if no GPU is available.
+
+    ```python
+    import dpnp as np
+
+    x = np.empty(3)
+    try:
+        x = np.asarray([1, 2, 3], device="gpu")
+    except Exception:
+        print("GPU device is not available")
+
+    print("Array x allocated on the device:", x.device)
+
+    y = np.sum(x)
+
+    print("Result y is located on the device:", y.device)  # Same device as x
+    print("Shape of y is:", y.shape)                        # 0-dimensional array
+    print("y =", y)                                          # Expect 6
+    ```
+
+    Because `y` is produced from `x`, it automatically lives on the same device. All subsequent operations on `y` will also execute on the GPU — no additional device annotations are needed.
+
+    <Tip>
+      You can also pass a `dpctl.SyclQueue` object as the `sycl_queue` argument to array constructors for fine-grained control over which device and queue to use.
+    </Tip>
+  </Step>
+</Steps>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Build from source" icon="wrench" href="/building-from-source">
+    Set up a development environment and build DPNP with support for NVIDIA or AMD GPUs.
+  </Card>
+  <Card title="API reference" icon="book-open" href="/reference/array-creation">
+    Browse the full list of supported array operations, math, FFT, linalg, and more.
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

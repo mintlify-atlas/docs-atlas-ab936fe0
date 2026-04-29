@@ -1,0 +1,293 @@
+---
+title: "Bitwise operations — DPNP API reference"
+description: "DPNP bitwise operations for integer and boolean arrays: AND, OR, XOR, invert, left and right shift, bit counting, and packing on SYCL-accelerated hardware."
+---
+
+DPNP provides a complete set of bitwise operations for integer and boolean arrays, running element-wise on SYCL-enabled accelerators. All functions accept `dpnp.ndarray` or `usm_ndarray` inputs with integer or boolean data types. The `&`, `|`, `^`, `~`, `<<`, and `>>` Python operators are also available as shorthands directly on `dpnp.ndarray`.
+
+## Element-wise bit operations
+
+### `dpnp.bitwise_and(x1, x2, out=None, order='K')`
+
+Computes the bitwise AND of two integer or boolean arrays element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — First input array, expected to have an integer or boolean data type.
+- `x2` (dpnp.ndarray or scalar) — Second input array, same type requirements.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+- `order` (str, optional) — Memory layout of the output. Default: `"K"`.
+
+**Returns:** `dpnp.ndarray` — Element-wise bitwise AND result.
+
+```python
+import dpnp as np
+
+x1 = np.array([2, 5, 255], dtype=np.int32)
+x2 = np.array([3, 14, 16], dtype=np.int32)
+np.bitwise_and(x1, x2)
+# array([ 2,  4, 16])
+
+# Operator shorthand
+x1 & x2
+# array([ 2,  4, 16])
+
+# Boolean arrays
+a = np.array([True, True])
+b = np.array([False, True])
+np.bitwise_and(a, b)
+# array([False,  True])
+```
+
+---
+
+### `dpnp.bitwise_or(x1, x2, out=None, order='K')`
+
+Computes the bitwise OR of two integer or boolean arrays element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — First input array, integer or boolean data type.
+- `x2` (dpnp.ndarray or scalar) — Second input array, integer or boolean data type.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Element-wise bitwise OR result.
+
+```python
+import dpnp as np
+
+x1 = np.array([2, 5, 255], dtype=np.int32)
+x2 = np.array([4], dtype=np.int32)
+np.bitwise_or(x1, x2)
+# array([  6,   5, 255])
+
+# 13 | 16 = 29
+np.bitwise_or(np.array(13), 16)
+# array(29)
+
+# Operator shorthand
+x1 | x2
+# array([  6,   5, 255])
+```
+
+---
+
+### `dpnp.bitwise_xor(x1, x2, out=None, order='K')`
+
+Computes the bitwise XOR of two integer or boolean arrays element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — First input array, integer or boolean data type.
+- `x2` (dpnp.ndarray or scalar) — Second input array, integer or boolean data type.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Element-wise bitwise XOR result.
+
+```python
+import dpnp as np
+
+x1 = np.array([31, 3], dtype=np.int32)
+x2 = np.array([5, 6], dtype=np.int32)
+np.bitwise_xor(x1, x2)
+# array([26,  5])
+
+# 13 XOR 17 = 28
+np.bitwise_xor(np.array(13), 17)
+# array(28)
+
+a = np.array([True, True])
+b = np.array([False, True])
+a ^ b
+# array([ True, False])
+```
+
+---
+
+### `dpnp.invert(x, out=None, order='K')` / `dpnp.bitwise_not(x, ...)` / `dpnp.bitwise_invert(x, ...)`
+
+Inverts (flips) each bit element-wise. For boolean arrays, this is equivalent to logical NOT. `bitwise_not` and `bitwise_invert` are aliases.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array, expected to have an integer or boolean data type.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+- `order` (str, optional) — Memory layout. Default: `"K"`.
+
+**Returns:** `dpnp.ndarray` — Element-wise bitwise NOT. Same data type as input.
+
+```python
+import dpnp as np
+
+# Integer inversion: ~13 = -14 in two's complement
+x = np.array([13], dtype=np.int8)
+np.invert(x)
+# array([-14], dtype=int8)
+
+np.binary_repr(-14, width=8)
+# '11110010'
+
+# Boolean inversion
+a = np.array([True, False])
+np.invert(a)
+# array([False,  True])
+
+# Tilde operator shorthand
+~a
+# array([False,  True])
+```
+
+---
+
+### `dpnp.left_shift(x1, x2, out=None, order='K')` / `dpnp.bitwise_left_shift(x1, x2, ...)`
+
+Shifts the bits of each element of `x1` to the left by the amount specified in `x2`. Appends zeros on the right. `bitwise_left_shift` is an alias.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — Input array, integer data type.
+- `x2` (dpnp.ndarray or scalar) — Number of positions to shift (non-negative integers).
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Element-wise left-shifted values.
+
+```python
+import dpnp as np
+
+x1 = np.array([5], dtype=np.int32)
+x2 = np.array([1, 2, 3], dtype=np.int32)
+np.left_shift(x1, x2)
+# array([10, 20, 40])
+
+# 5 = '101' in binary; 5 << 2 = '10100' = 20
+np.left_shift(np.array(5), 2)
+# array(20)
+
+# Operator shorthand
+x1 << x2
+# array([10, 20, 40])
+```
+
+---
+
+### `dpnp.right_shift(x1, x2, out=None, order='K')` / `dpnp.bitwise_right_shift(x1, x2, ...)`
+
+Shifts the bits of each element of `x1` to the right by the amount specified in `x2`. `bitwise_right_shift` is an alias.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — Input array, integer data type.
+- `x2` (dpnp.ndarray or scalar) — Number of positions to shift (non-negative integers).
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Element-wise right-shifted values.
+
+```python
+import dpnp as np
+
+x1 = np.array([10], dtype=np.int32)
+x2 = np.array([1, 2, 3], dtype=np.int32)
+np.right_shift(x1, x2)
+# array([5, 2, 1])
+
+# 10 = '1010'; 10 >> 1 = '101' = 5
+np.right_shift(np.array(10), 1)
+# array(5)
+
+# Operator shorthand
+x1 >> x2
+# array([5, 2, 1])
+```
+
+---
+
+### `dpnp.bitwise_count(x, out=None, order='K')`
+
+Computes the number of 1-bits in the absolute value of each integer element (popcount).
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array, expected to have an integer data type.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of `uint8` — Number of set bits per element.
+
+```python
+import dpnp as np
+
+np.bitwise_count(np.array(1023))
+# array(10, dtype=uint8)
+
+a = np.array([2**i - 1 for i in range(8)], dtype=np.int32)
+np.bitwise_count(a)
+# array([0, 1, 2, 3, 4, 5, 6, 7], dtype=uint8)
+```
+
+---
+
+## Bit packing
+
+### `dpnp.packbits(a, axis=None, bitorder='big')`
+
+Packs the elements of a binary-valued array into bits in a `uint8` array.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Array of integers or booleans whose elements should be packed to bits.
+- `axis` (int, optional) — Dimension over which packing is done. Default: `None` (flattened).
+- `bitorder` (str, optional) — `'big'` or `'little'` endian. Default: `'big'`.
+
+**Returns:** `dpnp.ndarray` of `uint8` — Packed bits.
+
+```python
+import dpnp as np
+
+bits = np.array([1, 0, 1, 1, 0, 0, 1, 0], dtype=np.uint8)
+np.packbits(bits)
+# array([178], dtype=uint8)
+```
+
+---
+
+### `dpnp.unpackbits(a, axis=None, count=None, bitorder='big')`
+
+Unpacks elements of a `uint8` array into a binary-valued output array.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array of `uint8` dtype.
+- `axis` (int, optional) — Dimension to unpack along. Default: `None`.
+- `count` (int, optional) — Number of elements to unpack. Default: `None` (all).
+- `bitorder` (str, optional) — `'big'` or `'little'` endian. Default: `'big'`.
+
+**Returns:** `dpnp.ndarray` of `uint8` — Unpacked bits.
+
+```python
+import dpnp as np
+
+a = np.array([178], dtype=np.uint8)
+np.unpackbits(a)
+# array([1, 0, 1, 1, 0, 0, 1, 0], dtype=uint8)
+```
+
+---
+
+## Output formatting
+
+### `dpnp.binary_repr(num, width=None)`
+
+Returns the binary representation of the input integer as a string.
+
+**Parameters:**
+- `num` (int) — Decimal integer to represent in binary.
+- `width` (int, optional) — Minimum width of the result. For negative numbers with width specified, the two's complement representation is returned.
+
+**Returns:** `str` — Binary string representation.
+
+```python
+import dpnp as np
+
+np.binary_repr(3)
+# '11'
+np.binary_repr(-3)
+# '-11'
+np.binary_repr(3, width=4)
+# '0011'
+
+# Two's complement for negative numbers with width
+np.binary_repr(-3, width=3)
+# '101'
+np.binary_repr(-3, width=5)
+# '11101'
+```

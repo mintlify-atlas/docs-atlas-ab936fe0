@@ -1,0 +1,681 @@
+---
+title: "Random number generation — dpnp.random"
+description: "GPU-accelerated random number generation for DPNP. Covers RandomState, seeding, simple random data, permutations, and 35 probability distributions."
+---
+
+The `dpnp.random` module provides GPU-aware random number generation that mirrors the `numpy.random` legacy API. Generators run on a SYCL device using the MT19937 (Mersenne Twister) algorithm. Most functions accept a `device` and `sycl_queue` keyword so that outputs can be created directly on a specific accelerator without a host-to-device copy. When a particular distribution is not yet accelerated, the module falls back transparently to NumPy.
+
+## Seeding and the RandomState class
+
+### `dpnp.random.seed(seed=None, device=None, sycl_queue=None)`
+
+Reseed the MT19937 random number generator engine for the given device.
+
+**Parameters:**
+- `seed` (`None`, int, or array-like of at most 3 ints, optional) — Seed value. `None` uses a random seed. Default: `None`.
+- `device` (None, str, SyclDevice, SyclQueue, or Device, optional) — Target device. Default: `None`.
+- `sycl_queue` (SyclQueue, optional) — SYCL queue for the operation. Default: `None`.
+
+```python
+import dpnp as np
+
+np.random.seed(42)
+x = np.random.rand(5)
+# reproducible result each run
+```
+
+---
+
+### `class dpnp.random.RandomState(seed=None, device=None, sycl_queue=None)`
+
+Container for the MT19937 pseudo-random number generator, scoped to a specific SYCL device.
+
+**Parameters:**
+- `seed` (`None`, int, or array-like of at most 3 ints, optional) — Initial seed. Default: `None`.
+- `device` (None, str, SyclDevice, SyclQueue, or Device, optional) — Device where the generator lives.
+- `sycl_queue` (SyclQueue, optional) — SYCL queue to use.
+
+Instantiating `RandomState` directly lets you maintain independent generators on different devices or control seeding precisely.
+
+```python
+import dpnp as np
+
+rng = np.random.RandomState(seed=0)
+samples = rng.normal(loc=0.0, scale=1.0, size=(3, 3))
+```
+
+---
+
+## Simple random data
+
+### `dpnp.random.rand(*args, device=None, usm_type="device", sycl_queue=None)`
+
+Create an array of the given shape filled with random samples from a uniform distribution over `[0, 1)`.
+
+**Parameters:**
+- `*args` (sequence of ints) — Shape dimensions.
+- `device` / `sycl_queue` — Target device/queue. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Float64 (or float32 on devices without float64) random array.
+
+```python
+import dpnp as np
+
+np.random.rand(3, 2)
+# array of shape (3, 2) with values in [0, 1)
+```
+
+---
+
+### `dpnp.random.randn(d0, *dn, device=None, usm_type="device", sycl_queue=None)`
+
+Return samples from the standard normal distribution `N(0, 1)`.
+
+**Parameters:**
+- `d0, *dn` (ints) — Shape dimensions.
+
+**Returns:** `dpnp.ndarray` — Float64/float32 array of standard normal samples.
+
+```python
+import dpnp as np
+
+s = 3 + 2.5 * np.random.randn(2, 4)
+# samples from N(3, 6.25)
+```
+
+---
+
+### `dpnp.random.randint(low, high=None, size=None, dtype=int, device=None, usm_type="device", sycl_queue=None)`
+
+Return random integers from `low` (inclusive) to `high` (exclusive).
+
+**Parameters:**
+- `low` (int) — Lowest integer to draw (inclusive); upper bound when `high` is omitted.
+- `high` (int, optional) — Upper bound (exclusive). Default: `None`.
+- `size` (int or tuple, optional) — Output shape. Default: `None` (single value).
+- `dtype` (`dpnp.int32` or `int`, default `int`) — Output dtype.
+
+**Returns:** `dpnp.ndarray` — Integer array of shape `size`.
+
+```python
+import dpnp as np
+
+np.random.randint(3, 11, size=1000, dtype=np.int32)
+```
+
+---
+
+### `dpnp.random.random(size=None, device=None, usm_type="device", sycl_queue=None)`
+
+Return random floats in `[0.0, 1.0)`. Alias for `random_sample`.
+
+**Returns:** `dpnp.ndarray`
+
+---
+
+### `dpnp.random.random_sample(size=None, device=None, usm_type="device", sycl_queue=None)`
+
+Return random floats in `[0.0, 1.0)` from the continuous uniform distribution.
+
+**Parameters:**
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray`
+
+```python
+import dpnp as np
+
+np.random.random_sample((5,))
+```
+
+---
+
+### `dpnp.random.ranf(size=None, device=None, usm_type="device", sycl_queue=None)`
+
+Alias for `random_sample`. Returns random floats in `[0.0, 1.0)`.
+
+---
+
+### `dpnp.random.sample(size=None, device=None, usm_type="device", sycl_queue=None)`
+
+Alias for `random_sample`. Returns random floats in `[0.0, 1.0)`.
+
+---
+
+### `dpnp.random.choice(a, size=None, replace=True, p=None)`
+
+Generate a random sample from a 1-D array.
+
+**Parameters:**
+- `a` (int or 1-D array-like) — If int, samples are drawn from `arange(a)`.
+- `size` (int or tuple, optional) — Output shape.
+- `replace` (bool, default `True`) — Sample with replacement.
+- `p` (array-like, optional) — Probabilities for each element.
+
+**Returns:** `dpnp.ndarray` — Random samples from `a`.
+
+<Note>
+  This function currently uses `numpy.random.choice` on the backend.
+</Note>
+
+---
+
+### `dpnp.random.bytes(length)`
+
+Return random bytes as a Python `bytes` object.
+
+**Parameters:**
+- `length` (int) — Number of random bytes.
+
+**Returns:** `bytes`
+
+<Note>
+  Uses `numpy.random.bytes` on the backend.
+</Note>
+
+---
+
+## Permutations
+
+### `dpnp.random.shuffle(x1)`
+
+Modify a sequence in-place by shuffling its contents along the first axis.
+
+**Parameters:**
+- `x1` (dpnp.ndarray) — Array to shuffle in-place.
+
+**Returns:** `None`
+
+```python
+import dpnp as np
+
+arr = np.arange(10)
+np.random.shuffle(arr)
+```
+
+---
+
+### `dpnp.random.permutation(x)`
+
+Randomly permute a sequence or return a permuted range. Unlike `shuffle`, this does not modify the input and always returns a new array.
+
+**Parameters:**
+- `x` (int or dpnp.ndarray) — If int, permute `arange(x)`; otherwise permute `x`.
+
+**Returns:** `dpnp.ndarray` — Permuted array.
+
+```python
+import dpnp as np
+
+np.random.permutation(10)
+# array([3, 8, 7, 9, 0, 6, 1, 2, 4, 5])  # random
+```
+
+---
+
+## Distributions
+
+### `dpnp.random.beta(a, b, size=None)`
+
+Draw samples from a Beta distribution.
+
+**Parameters:**
+- `a` (float) — Alpha parameter; must be positive.
+- `b` (float) — Beta parameter; must be positive.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples from Beta(a, b).
+
+---
+
+### `dpnp.random.binomial(n, p, size=None)`
+
+Draw samples from a binomial distribution.
+
+**Parameters:**
+- `n` (int) — Number of trials.
+- `p` (float) — Probability of success per trial; must be in `[0, 1]`.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Int32 samples.
+
+---
+
+### `dpnp.random.chisquare(df, size=None)`
+
+Draw samples from a chi-square distribution.
+
+**Parameters:**
+- `df` (int) — Degrees of freedom; must be positive.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float samples.
+
+---
+
+### `dpnp.random.dirichlet(alpha, size=None)`
+
+Draw samples from the Dirichlet distribution.
+
+**Parameters:**
+- `alpha` (array-like of floats) — Concentration parameters.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray`
+
+<Note>Uses `numpy.random.dirichlet` on the backend.</Note>
+
+---
+
+### `dpnp.random.exponential(scale=1.0, size=None)`
+
+Draw samples from an exponential distribution.
+
+**Parameters:**
+- `scale` (float, default `1.0`) — Scale (inverse rate); must be non-negative.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.f(dfnum, dfden, size=None)`
+
+Draw samples from an F distribution.
+
+**Parameters:**
+- `dfnum` (float) — Numerator degrees of freedom; must be positive.
+- `dfden` (float) — Denominator degrees of freedom; must be positive.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.gamma(shape, scale=1.0, size=None)`
+
+Draw samples from a Gamma distribution.
+
+**Parameters:**
+- `shape` (float) — Shape parameter; must be non-negative.
+- `scale` (float, default `1.0`) — Scale parameter; must be non-negative.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.geometric(p, size=None)`
+
+Draw samples from the geometric distribution.
+
+**Parameters:**
+- `p` (float) — Success probability; must be in `(0, 1]`.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Int32 samples.
+
+---
+
+### `dpnp.random.gumbel(loc=0.0, scale=1.0, size=None)`
+
+Draw samples from a Gumbel distribution.
+
+**Parameters:**
+- `loc` (float, default `0.0`) — Mode of the distribution.
+- `scale` (float, default `1.0`) — Scale; must be non-negative.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.hypergeometric(ngood, nbad, nsample, size=None)`
+
+Draw samples from a Hypergeometric distribution.
+
+**Parameters:**
+- `ngood` (int) — Number of good items in the population.
+- `nbad` (int) — Number of bad items in the population.
+- `nsample` (int) — Number of items sampled; must be `<= ngood + nbad`.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Int32 samples.
+
+---
+
+### `dpnp.random.laplace(loc=0.0, scale=1.0, size=None)`
+
+Draw samples from the Laplace (double exponential) distribution.
+
+**Parameters:**
+- `loc` (float, default `0.0`) — Location of distribution peak.
+- `scale` (float, default `1.0`) — Exponential decay; must be non-negative.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.logistic(loc=0.0, scale=1.0, size=None)`
+
+Draw samples from a logistic distribution.
+
+**Parameters:**
+- `loc` (float, default `0.0`) — Mean.
+- `scale` (float, default `1.0`) — Spread; must be non-negative.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.lognormal(mean=0.0, sigma=1.0, size=None)`
+
+Draw samples from a log-normal distribution.
+
+**Parameters:**
+- `mean` (float, default `0.0`) — Mean of the underlying normal distribution.
+- `sigma` (float, default `1.0`) — Standard deviation; must be non-negative.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.logseries(p, size=None)`
+
+Draw samples from a logarithmic series distribution.
+
+**Parameters:**
+- `p` (float) — Shape parameter; must be in `(0, 1)`.
+- `size` (int or tuple, optional) — Output shape.
+
+<Note>Uses `numpy.random.logseries` on the backend.</Note>
+
+---
+
+### `dpnp.random.multinomial(n, pvals, size=None)`
+
+Draw samples from a multinomial distribution.
+
+**Parameters:**
+- `n` (int) — Number of experiments.
+- `pvals` (array-like of floats) — Probabilities of each of `k` categories; must sum to at most 1.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Integer samples.
+
+```python
+import dpnp as np
+
+s = np.random.multinomial(20, [1/6.] * 6, size=1)
+# s.shape == (1, 6)
+```
+
+---
+
+### `dpnp.random.multivariate_normal(mean, cov, size=None, check_valid="warn", tol=1e-8)`
+
+Draw random samples from a multivariate normal distribution.
+
+**Parameters:**
+- `mean` (1-D array-like of length N) — Mean of the distribution.
+- `cov` (2-D array-like of shape (N, N)) — Covariance matrix.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Samples of shape `size + (N,)`.
+
+---
+
+### `dpnp.random.negative_binomial(n, p, size=None)`
+
+Draw samples from a negative binomial distribution.
+
+**Parameters:**
+- `n` (float) — Number of successes; must be positive.
+- `p` (float) — Success probability; must be in `[0, 1]`.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Int32 samples.
+
+---
+
+### `dpnp.random.noncentral_chisquare(df, nonc, size=None)`
+
+Draw samples from a non-central chi-square distribution.
+
+**Parameters:**
+- `df` (float) — Degrees of freedom; must be positive.
+- `nonc` (float) — Non-centrality parameter; must be non-negative.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float samples.
+
+---
+
+### `dpnp.random.noncentral_f(dfnum, dfden, nonc, size=None)`
+
+Draw samples from the non-central F distribution.
+
+**Parameters:**
+- `dfnum` (float) — Numerator degrees of freedom; must be positive.
+- `dfden` (float) — Denominator degrees of freedom; must be positive.
+- `nonc` (float) — Non-centrality parameter; must be non-negative.
+- `size` (int or tuple, optional) — Output shape.
+
+<Note>Uses `numpy.random.noncentral_f` on the backend.</Note>
+
+---
+
+### `dpnp.random.normal(loc=0.0, scale=1.0, size=None, device=None, usm_type="device", sycl_queue=None)`
+
+Draw random samples from a normal (Gaussian) distribution.
+
+**Parameters:**
+- `loc` (float, default `0.0`) — Mean of the distribution.
+- `scale` (float, default `1.0`) — Standard deviation.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64/float32 samples.
+
+```python
+import dpnp as np
+
+mu, sigma = 0, 0.1
+s = np.random.normal(mu, sigma, 1000)
+```
+
+---
+
+### `dpnp.random.pareto(a, size=None)`
+
+Draw samples from a Pareto II (Lomax) distribution.
+
+**Parameters:**
+- `a` (float) — Shape parameter; must be positive.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.poisson(lam=1.0, size=None)`
+
+Draw samples from a Poisson distribution.
+
+**Parameters:**
+- `lam` (float, default `1.0`) — Expected number of events per interval; must be non-negative.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Int32 samples.
+
+---
+
+### `dpnp.random.power(a, size=None)`
+
+Draw samples from a power distribution with positive exponent `a - 1` on `[0, 1]`.
+
+**Parameters:**
+- `a` (float) — Shape parameter; must be positive.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.rayleigh(scale=1.0, size=None)`
+
+Draw samples from a Rayleigh distribution.
+
+**Parameters:**
+- `scale` (float, default `1.0`) — Scale; must be non-negative.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.standard_cauchy(size=None)`
+
+Draw samples from a standard Cauchy (Lorentz) distribution with mode 0.
+
+**Parameters:**
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float samples.
+
+---
+
+### `dpnp.random.standard_exponential(size=None)`
+
+Draw samples from the standard exponential distribution (scale = 1).
+
+**Parameters:**
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float samples.
+
+---
+
+### `dpnp.random.standard_gamma(shape, size=None)`
+
+Draw samples from a standard Gamma distribution (scale = 1).
+
+**Parameters:**
+- `shape` (float) — Shape parameter; must be non-negative.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.standard_normal(size=None, device=None, usm_type="device", sycl_queue=None)`
+
+Draw samples from a standard normal distribution `N(0, 1)`.
+
+**Parameters:**
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64/float32 samples.
+
+---
+
+### `dpnp.random.standard_t(df, size=None)`
+
+Draw samples from a standard Student's t distribution.
+
+**Parameters:**
+- `df` (float) — Degrees of freedom; must be positive.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.triangular(left, mode, right, size=None)`
+
+Draw samples from the triangular distribution over `[left, right]`.
+
+**Parameters:**
+- `left` (float) — Lower limit.
+- `mode` (float) — Peak; must satisfy `left <= mode <= right`.
+- `right` (float) — Upper limit; must be `> left`.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+```python
+import dpnp as np
+
+s = np.random.triangular(-3, 0, 8, 1000000)
+```
+
+---
+
+### `dpnp.random.uniform(low=0.0, high=1.0, size=None, device=None, usm_type="device", sycl_queue=None)`
+
+Draw samples from a uniform distribution over `[low, high)`.
+
+**Parameters:**
+- `low` (float, default `0.0`) — Lower boundary (inclusive).
+- `high` (float, default `1.0`) — Upper boundary (exclusive).
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64/float32 samples.
+
+```python
+import dpnp as np
+
+s = np.random.uniform(0, 0.1, 10000)
+```
+
+---
+
+### `dpnp.random.vonmises(mu, kappa, size=None)`
+
+Draw samples from a von Mises distribution.
+
+**Parameters:**
+- `mu` (float) — Mean direction in radians.
+- `kappa` (float) — Concentration; must be non-negative.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.wald(mean, scale, size=None)`
+
+Draw samples from a Wald (inverse Gaussian) distribution.
+
+**Parameters:**
+- `mean` (float) — Mean; must be positive.
+- `scale` (float) — Scale; must be positive.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.weibull(a, size=None)`
+
+Draw samples from a Weibull distribution.
+
+**Parameters:**
+- `a` (float) — Shape parameter; must be non-negative.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.
+
+---
+
+### `dpnp.random.zipf(a, size=None)`
+
+Draw samples from the Zipf distribution.
+
+**Parameters:**
+- `a` (float) — Distribution parameter; must be `> 1`.
+- `size` (int or tuple, optional) — Output shape.
+
+**Returns:** `dpnp.ndarray` — Float64 samples.

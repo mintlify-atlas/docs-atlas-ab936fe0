@@ -1,0 +1,94 @@
+---
+title: "DPNP: NumPy for Data-Parallel Devices"
+description: "An overview of DPNP, the drop-in NumPy extension for Intel GPUs and other SYCL devices. Covers key features, supported hardware, and the Intel oneAPI ecosystem."
+---
+
+DPNP (Data Parallel Extension for NumPy) is a Python library that implements a subset of the NumPy API designed to run on data-parallel hardware. It is a drop-in replacement for core NumPy functions and numerical data types, meaning you can often swap `import numpy as np` for `import dpnp as np` and have your computations execute on a GPU or another SYCL device with no further changes.
+
+DPNP is built on Intel's oneAPI programming model and uses SYCL as the underlying execution layer. Arrays allocated by `dpnp.ndarray` live in device memory on the default SYCL device — typically an Intel integrated or discrete GPU. Downstream computations automatically follow the data to that device, so you do not need to manually manage data movement.
+
+## What is DPNP?
+
+DPNP is the core library in Intel's data-parallel Python ecosystem. It is developed as part of the [Intel AI Analytics Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/ai-analytics-toolkit.html) and is distributed with the [Intel Distribution for Python](https://www.intel.com/content/www/us/en/developer/tools/oneapi/distribution-for-python.html).
+
+The design goal is minimal friction: existing NumPy code that uses supported functions can run on a GPU simply by changing the import:
+
+```python
+import dpnp as np
+
+x = np.array([1, 2, 3])
+print("Array allocated on:", x.device)
+
+s = np.sum(x)
+print("Result on:", s.device)  # Same device as x
+```
+
+`dpnp.ndarray` is a compatible alternative to `numpy.ndarray`. The key difference is where memory lives: on the default SYCL device rather than on the CPU.
+
+<Note>
+  On systems without a GPU, DPNP falls back to the `"host"` device so code remains functional. Install the appropriate GPU driver to enable hardware acceleration.
+</Note>
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Drop-in NumPy API" icon="code">
+    Import as `np` and use familiar functions — `array`, `sum`, `matmul`, `reshape`, and more — with no code rewrites.
+  </Card>
+  <Card title="GPU-first memory model" icon="microchip">
+    Arrays are allocated directly in device memory. No explicit data transfers needed for supported operations.
+  </Card>
+  <Card title="Compute follows data" icon="arrow-right-arrow-left">
+    Operations automatically execute on the device where the input arrays live, following the compute-follows-data paradigm.
+  </Card>
+  <Card title="Explicit device selection" icon="sliders">
+    Pass `device="gpu"` or a `dpctl.SyclQueue` to any array constructor to target a specific device.
+  </Card>
+  <Card title="oneAPI and OneMKL backend" icon="bolt">
+    Numerical kernels are dispatched through OneMKL for high-performance linear algebra and math on Intel hardware.
+  </Card>
+  <Card title="Multi-vendor GPU support" icon="globe">
+    Builds for NVIDIA (CUDA) and AMD (ROCm/HIP) devices via CodePlay plugins, in addition to native Intel GPU support.
+  </Card>
+</CardGroup>
+
+## Supported hardware
+
+DPNP targets any device exposed through SYCL. The primary supported hardware is:
+
+- **Intel integrated GPUs** — available on most modern Intel laptops and desktops
+- **Intel discrete GPUs** — Intel Arc and Data Center GPU Max series
+- **Intel CPUs** — available as a fallback SYCL device
+- **NVIDIA GPUs** — via the [oneAPI for NVIDIA GPUs](https://developer.codeplay.com/products/oneapi/nvidia/) CodePlay plugin (requires a custom build)
+- **AMD GPUs** — via the [oneAPI for AMD GPUs](https://developer.codeplay.com/products/oneapi/amd/) CodePlay plugin (requires a custom build)
+
+<Info>
+  Pre-built packages from Intel's conda and pip channels include Intel GPU support only. NVIDIA and AMD support requires building DPNP from source with the appropriate CodePlay plugin.
+</Info>
+
+## Relationship to the Intel ecosystem
+
+DPNP is part of a larger family of data-parallel Python libraries:
+
+- **dpctl** — Data Parallel Control Library, providing the `SyclQueue`, `SyclDevice`, and USM memory management primitives that DPNP builds on
+- **Intel Distribution for Python** — a curated Python distribution that bundles DPNP alongside NumPy, SciPy, and other packages optimized for Intel hardware
+- **Intel AI Analytics Toolkit** — the broader oneAPI toolkit that includes DPNP, oneMKL, and other AI/ML components
+
+DPNP depends on `dpctl` for device discovery and memory management. You can use `dpctl` directly to inspect available devices and construct custom `SyclQueue` objects for fine-grained device control.
+
+## What's supported
+
+DPNP implements a growing subset of the NumPy API. Covered areas include:
+
+- Array creation routines (`array`, `zeros`, `ones`, `arange`, `empty`, `full`, `linspace`, and more)
+- Mathematical functions (`sum`, `prod`, `mean`, `std`, `sqrt`, `abs`, `sin`, `cos`, and more)
+- Linear algebra (`matmul`, `dot`, `linalg.solve`, `linalg.eig`, and more)
+- Array manipulation (`reshape`, `transpose`, `concatenate`, `stack`, `split`, and more)
+- Sorting and searching (`sort`, `argsort`, `argmin`, `argmax`, and more)
+- Statistical functions (`min`, `max`, `median`, `var`, `cumsum`, and more)
+
+<Tip>
+  Check the [API coverage summary](https://intelpython.github.io/dpnp/reference/comparison.html#summary) for a complete, up-to-date comparison between DPNP and NumPy.
+</Tip>
+
+Functions not yet implemented fall back with a `NotImplementedError`, so you can detect gaps during migration.

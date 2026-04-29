@@ -1,133 +1,81 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
-icon: 'star'
+title: "DPNP: GPU-Accelerated NumPy for Intel oneAPI"
+description: "Data Parallel Extension for NumPy — a drop-in NumPy replacement that executes on Intel, NVIDIA, and AMD GPUs via SYCL/oneAPI with oneMKL optimization."
 ---
 
-## Setting up
+DPNP (Data Parallel Extension for NumPy) is a Python library that implements a NumPy-compatible API which runs on any SYCL-capable data-parallel device — including Intel integrated and discrete GPUs, NVIDIA GPUs, and AMD GPUs. You can often replace `import numpy as np` with `import dpnp as np` and immediately benefit from GPU acceleration without rewriting your code.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install DPNP and run your first GPU-accelerated array computation in minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Building from Source" icon="hammer" href="/building-from-source">
+    Set up a development environment and build DPNP for Intel, NVIDIA, or AMD targets.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Migrating from NumPy" icon="arrow-right-arrow-left" href="/guides/migrating-from-numpy">
+    Learn what changes (and what doesn't) when switching from NumPy to DPNP.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="API Reference" icon="code" href="/reference/array-creation">
+    Explore the full public API including array creation, math, FFT, linalg, and more.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Why DPNP?
 
-Everything you need to create world-class documentation.
+DPNP brings high-performance, data-parallel computing to Python without requiring you to learn new APIs. It leverages Intel's oneAPI toolkit and oneMKL to accelerate numerical workloads on modern hardware.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={3}>
+  <Card title="Drop-in NumPy" icon="arrows-rotate">
+    Compatible NumPy interface — switch with a single import change.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Multi-GPU Support" icon="microchip">
+    Runs on Intel, NVIDIA, and AMD GPUs via SYCL backends.
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Array API Standard" icon="check">
+    Fully compliant with the Python Array API standard.
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="oneMKL Optimized" icon="bolt">
+    Uses Intel oneMKL for FFT, linear algebra, and random number generation.
   </Card>
-</Columns>
+  <Card title="DLPack Support" icon="link">
+    Zero-copy tensor sharing with PyTorch, TensorFlow, and other frameworks.
+  </Card>
+  <Card title="USM Memory Model" icon="server">
+    Unified Shared Memory arrays via dpctl for fine-grained device control.
+  </Card>
+</CardGroup>
 
-## Make your content agent ready
+## Get started
 
-Make your docs work for humans and AI agents alike.
+<Steps>
+  <Step title="Install DPNP">
+    Install using conda or pip from the Intel channel:
+    ```bash
+    conda install dpnp -c https://software.repos.intel.com/python/conda/ -c conda-forge --override-channels
+    ```
+  </Step>
+  <Step title="Import and use">
+    Replace your NumPy import and run computations on the default device:
+    ```python
+    import dpnp as np
 
-<Columns cols={2}>
-  <Card
-    title="Prompt component"
-    icon="robot"
-    href="/agent-ready/prompt"
-  >
-    Embed shareable AI prompts readers can copy or open in Cursor.
-  </Card>
-  <Card
-    title="Visibility"
-    icon="eye"
-    href="/agent-ready/visibility"
-  >
-    Show different content to humans and agents reading your docs.
-  </Card>
-  <Card
-    title="Contextual menu"
-    icon="bolt"
-    href="/agent-ready/contextual"
-  >
-    Give readers one-click access to Claude, ChatGPT, Cursor, and more.
-  </Card>
-  <Card
-    title="AI coding tools"
-    icon="wand-magic-sparkles"
-    href="/ai-tools/claude-code"
-  >
-    Set up Claude Code, Cursor, or Windsurf with Mintlify's skill.
-  </Card>
-</Columns>
+    x = np.array([1, 2, 3, 4, 5])
+    print(np.sum(x))   # Executes on GPU if available
+    ```
+  </Step>
+  <Step title="Select a device">
+    Explicitly target a specific device by passing `device=` to any array constructor:
+    ```python
+    import dpnp as np
+    import dpctl
 
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+    gpu_device = dpctl.select_gpu_device()
+    x = np.linspace(0, 1, 1000, device=gpu_device)
+    result = np.sin(x)
+    print("Result on:", result.device)
+    ```
+  </Step>
+  <Step title="Explore the API">
+    Browse the [API Reference](/reference/array-creation) for the full list of supported functions, or read the [migration guide](/guides/migrating-from-numpy) to understand compatibility.
+  </Step>
+</Steps>

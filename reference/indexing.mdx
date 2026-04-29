@@ -1,0 +1,479 @@
+---
+title: "Indexing routines — DPNP API reference"
+description: "Complete reference for DPNP indexing functions: take, put, choose, nonzero, where, fancy indexing, and index generation on SYCL devices."
+---
+
+DPNP supports all major NumPy indexing patterns — basic integer/slice indexing, boolean mask indexing, and advanced (fancy) indexing using integer arrays. All indexing operations run on the target SYCL device without transferring data to the host.
+
+<Note>
+Boolean masks and integer index arrays must be DPNP arrays (or SYCL USM arrays). Plain Python lists and NumPy arrays are generally accepted as inputs but are first converted via `dpnp.asarray`.
+</Note>
+
+---
+
+## Generating index arrays
+
+### `dpnp.diag_indices(n, ndim=2, device=None, usm_type="device", sycl_queue=None)`
+
+Return the indices needed to access the main diagonal of an `n × n × … × n` array.
+
+**Parameters:**
+- `n` (int) — Size along each dimension of the target array.
+- `ndim` (int) — Number of dimensions. Default: `2`.
+- `device`, `usm_type`, `sycl_queue` — SYCL placement controls.
+
+**Returns:** tuple of `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+di = np.diag_indices(4)
+# (array([0, 1, 2, 3]), array([0, 1, 2, 3]))
+
+a = np.arange(16).reshape(4, 4)
+a[di] = 100
+# Sets [0,0], [1,1], [2,2], [3,3] to 100
+```
+
+---
+
+### `dpnp.diag_indices_from(arr)`
+
+Return the indices to access the main diagonal of an n-dimensional array.
+
+**Parameters:**
+- `arr` (dpnp.ndarray or usm_ndarray) — At least 2-D square array (all dimensions equal).
+
+**Returns:** tuple of `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.arange(16).reshape(4, 4)
+di = np.diag_indices_from(a)
+a[di]
+# array([ 0,  5, 10, 15])
+```
+
+---
+
+### `dpnp.indices(dimensions, dtype=int, sparse=False, device=None, usm_type="device", sycl_queue=None)`
+
+Return an array representing the indices of a grid.
+
+**Parameters:**
+- `dimensions` (sequence of ints) — The shape of the grid.
+- `dtype` — Data type of the result. Default: `int`.
+- `sparse` (bool) — If `True`, return a sparse representation. Default: `False`.
+
+**Returns:** `dpnp.ndarray` or tuple of `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+grid = np.indices((2, 3))
+grid.shape
+# (2, 2, 3)
+
+grid[0]
+# array([[0, 0, 0],
+#        [1, 1, 1]])
+
+grid[1]
+# array([[0, 1, 2],
+#        [0, 1, 2]])
+```
+
+---
+
+### `dpnp.ix_(*args)`
+
+Construct an open mesh from multiple sequences for cross-product indexing.
+
+**Parameters:**
+- `*args` (dpnp.ndarray) — 1-D integer or boolean sequences.
+
+**Returns:** tuple of `dpnp.ndarray` — N arrays with N dimensions each.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.arange(10).reshape(2, 5)
+x1 = np.array([0, 1])
+x2 = np.array([2, 4])
+ixgrid = np.ix_(x1, x2)
+a[ixgrid]
+# array([[2, 4],
+#        [7, 9]])
+```
+
+---
+
+### `dpnp.nonzero(a)`
+
+Return the indices of non-zero elements, one array per dimension.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+
+**Returns:** tuple of `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.array([[3, 0, 0], [0, 4, 0], [5, 6, 0]])
+np.nonzero(x)
+# (array([0, 1, 2, 2]), array([0, 1, 0, 1]))
+
+# Use as index into x:
+x[np.nonzero(x)]
+# array([3, 4, 5, 6])
+
+# Idiomatic boolean mask usage:
+a = np.array([[1, 2, 3], [4, 5, 6]])
+np.nonzero(a > 3)
+# (array([1, 1, 1]), array([0, 1, 2]))
+```
+
+---
+
+### `dpnp.unravel_index(indices, shape, order="C")`
+
+Convert flat indices to multi-dimensional index tuples.
+
+**Parameters:**
+- `indices` (dpnp.ndarray) — Flat indices into an array of shape `shape`.
+- `shape` (tuple of ints) — Target array shape.
+- `order` (`"C"` or `"F"`) — Index ordering. Default: `"C"`.
+
+**Returns:** tuple of `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+np.unravel_index(np.array([22, 41, 37]), (6, 7))
+# (array([3, 5, 5]), array([1, 6, 2]))
+```
+
+---
+
+### `dpnp.ravel_multi_index(multi_index, dims, mode="raise", order="C")`
+
+Convert multi-dimensional indices to flat indices.
+
+**Parameters:**
+- `multi_index` (sequence of dpnp.ndarray) — Tuple of index arrays, one per dimension.
+- `dims` (sequence of ints) — Shape of the target array.
+- `mode` (`"raise"`, `"clip"`, or `"wrap"`) — Out-of-bounds behavior. Default: `"raise"`.
+- `order` (`"C"` or `"F"`) — Index ordering. Default: `"C"`.
+
+**Returns:** `dpnp.ndarray` — Flat indices.
+
+**Example:**
+
+```python
+import dpnp as np
+
+arr = np.array([[3, 6, 6], [4, 5, 1]])
+np.ravel_multi_index(arr, (7, 6))
+# array([22, 41, 37])
+```
+
+---
+
+### `dpnp.tril_indices(n, k=0, m=None, device=None, usm_type="device", sycl_queue=None)`
+
+Return the indices for the lower-triangle of an `(n, m)` array.
+
+**Parameters:**
+- `n` (int) — Number of rows.
+- `k` (int) — Diagonal offset. Default: `0`.
+- `m` (int, optional) — Number of columns. Defaults to `n`.
+
+**Returns:** tuple of `dpnp.ndarray` — (row indices, column indices)
+
+**Example:**
+
+```python
+import dpnp as np
+
+il = np.tril_indices(4)
+a = np.arange(16).reshape(4, 4)
+a[il]
+# array([ 0,  4,  5,  8,  9, 10, 12, 13, 14, 15])
+```
+
+---
+
+### `dpnp.triu_indices(n, k=0, m=None, device=None, usm_type="device", sycl_queue=None)`
+
+Return the indices for the upper-triangle of an `(n, m)` array.
+
+**Parameters:**
+- `n` (int) — Number of rows.
+- `k` (int) — Diagonal offset. Default: `0`.
+- `m` (int, optional) — Number of columns. Defaults to `n`.
+
+**Returns:** tuple of `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+iu = np.triu_indices(3)
+a = np.arange(9).reshape(3, 3)
+a[iu]
+# array([0, 1, 2, 4, 5, 8])
+```
+
+---
+
+## Indexing-like operations
+
+### `dpnp.take(a, indices, axis=None, out=None, mode="wrap")`
+
+Take elements from an array along an axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Source array.
+- `indices` (array_like) — Indices of elements to take.
+- `axis` (int or None) — Axis over which to select values. Default: `None` (flattened).
+- `out` (dpnp.ndarray, optional) — Output array.
+- `mode` (`"wrap"` or `"clip"`) — Out-of-bounds behavior. Default: `"wrap"`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([4, 3, 5, 7, 6, 8])
+indices = np.array([0, 1, 4])
+np.take(a, indices)
+# array([4, 3, 6])
+```
+
+---
+
+### `dpnp.put(a, ind, v, /, *, axis=None, mode="wrap")`
+
+Put values into an array at the given indices along an axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Target array.
+- `ind` (array_like) — Target indices.
+- `v` (scalar or array_like) — Values to place into `a`.
+- `axis` (int or None) — Axis along which to put values. Default: `None`.
+- `mode` (`"wrap"` or `"clip"`) — Out-of-bounds behavior. Default: `"wrap"`.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.arange(5)
+np.put(a, [0, 2], [-44, -55])
+print(a)
+# array([-44,   1, -55,   3,   4])
+```
+
+---
+
+### `dpnp.choose(a, choices, out=None, mode="wrap")`
+
+Construct an array by selecting from a set of arrays using an index array.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Integer array of indices in `[0, n-1]` where `n` is the number of choices.
+- `choices` (dpnp.ndarray or sequence of arrays) — Arrays to choose from.
+- `out` (dpnp.ndarray, optional) — Output array.
+- `mode` (`"wrap"` or `"clip"`) — Out-of-bounds index behavior. Default: `"wrap"`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+choices = np.array([[0, 1, 2, 3],
+                    [10, 11, 12, 13],
+                    [20, 21, 22, 23],
+                    [30, 31, 32, 33]])
+np.choose(np.array([2, 3, 1, 0]), choices)
+# array([20, 31, 12,  3])
+```
+
+---
+
+### `dpnp.compress(condition, a, axis=None, out=None)`
+
+Return selected slices of an array where `condition` is `True`.
+
+**Parameters:**
+- `condition` (array_like) — Boolean 1-D array. Shorter than axis size truncates output.
+- `a` (dpnp.ndarray or usm_ndarray) — Array to extract from.
+- `axis` (int or None) — Axis to extract slices from. `None` operates on the flattened array. Default: `None`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([[1, 2], [3, 4], [5, 6]])
+np.compress([0, 1], a, axis=0)
+# array([[3, 4]])
+
+np.compress([False, True, True], a, axis=0)
+# array([[3, 4],
+#        [5, 6]])
+```
+
+---
+
+### `dpnp.diagonal(a, offset=0, axis1=0, axis2=1)`
+
+Return specified diagonals of an array.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — At least 2-D input array.
+- `offset` (int) — Diagonal offset from the main diagonal. Default: `0`.
+- `axis1` (int) — First axis of the 2-D sub-arrays. Default: `0`.
+- `axis2` (int) — Second axis of the 2-D sub-arrays. Default: `1`.
+
+**Returns:** `dpnp.ndarray` — A read/write view.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.arange(4).reshape(2, 2)
+a.diagonal()
+# array([0, 3])
+
+a.diagonal(1)
+# array([1])
+```
+
+---
+
+### `dpnp.fill_diagonal(a, val, wrap=False)`
+
+Fill the main diagonal of an array in-place.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Array whose diagonal will be filled. At least 2-D.
+- `val` (scalar or array_like) — Value(s) to write. Repeated if shorter than diagonal.
+- `wrap` (bool) — Wrap the diagonal for tall matrices. Default: `False`.
+
+**Returns:** `None` (modifies `a` in-place).
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.zeros((3, 3), dtype=int)
+np.fill_diagonal(a, 5)
+print(a)
+# array([[5, 0, 0],
+#        [0, 5, 0],
+#        [0, 0, 5]])
+```
+
+---
+
+### `dpnp.where(condition, x=None, y=None, /, *, order="K", out=None)`
+
+Return elements chosen from `x` or `y` depending on `condition`.
+
+When called with only `condition`, behaves as `dpnp.nonzero(condition)`.
+
+**Parameters:**
+- `condition` (dpnp.ndarray or usm_ndarray) — Boolean condition array.
+- `x` (dpnp.ndarray, usm_ndarray, or scalar) — Values where `condition` is `True`.
+- `y` (dpnp.ndarray, usm_ndarray, or scalar) — Values where `condition` is `False`.
+- `order` — Memory layout of the output. Default: `"K"`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.arange(10)
+np.where(a < 5, a, 10 * a)
+# array([ 0,  1,  2,  3,  4, 50, 60, 70, 80, 90])
+
+# When called with one argument, returns nonzero indices:
+np.where(np.array([True, False, True]))
+# (array([0, 2]),)
+```
+
+---
+
+### `dpnp.place(a, mask, vals)`
+
+Change elements of an array based on a boolean mask.
+
+Uses the first N values from `vals`, where N is the number of `True` entries in `mask`.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Array to put data into.
+- `mask` (array_like) — Boolean mask. Must be the same size as `a`.
+- `vals` (array_like) — Replacement values. Repeated if shorter than required.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.arange(6).reshape(2, 3)
+np.place(a, a > 2, [44, 55])
+print(a)
+# array([[ 0,  1,  2],
+#        [44, 55, 44]])
+```
+
+---
+
+### `dpnp.select(condlist, choicelist, default=0)`
+
+Return an array drawn from elements in `choicelist`, based on conditions.
+
+**Parameters:**
+- `condlist` (list of dpnp.ndarray) — List of boolean condition arrays.
+- `choicelist` (list of dpnp.ndarray) — List of arrays from which to draw values.
+- `default` (scalar) — Value when no condition is met. Default: `0`.
+
+**Returns:** `dpnp.ndarray`
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.arange(10)
+conditions = [x < 3, x > 5]
+choices = [x, x ** 2]
+np.select(conditions, choices, default=-1)
+# array([ 0,  1,  2, -1, -1, -1, 36, 49, 64, 81])
+```

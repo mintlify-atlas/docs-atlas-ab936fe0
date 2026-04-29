@@ -1,0 +1,557 @@
+---
+title: "Statistical functions — DPNP reference"
+description: "DPNP statistical functions: mean, variance, percentiles, correlations, and histograms, GPU-accelerated via Intel oneMKL, compatible with NumPy statistics."
+---
+
+DPNP provides a full suite of statistical functions that run on SYCL-enabled accelerators via Intel's oneMKL. The API matches NumPy's `numpy` statistics module, accepting `dpnp.ndarray` and `usm_ndarray` inputs. Functions that reduce over axes support `axis`, `keepdims`, and `dtype` parameters unless noted otherwise.
+
+## Order statistics
+
+### `dpnp.ptp(a, axis=None, out=None, keepdims=False)`
+
+Returns the peak-to-peak (maximum - minimum) value along an axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Axis or axes along which to operate. Default: `None` (entire array).
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+- `keepdims` (bool, optional) — Keep reduced dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` — Peak-to-peak range.
+
+```python
+import dpnp as np
+x = np.array([[1, 5], [3, 8]])
+np.ptp(x)          # array(7)
+np.ptp(x, axis=0)  # array([2, 3])
+np.ptp(x, axis=1)  # array([4, 5])
+```
+
+---
+
+### `dpnp.percentile(a, q, axis=None, out=None, overwrite_input=False, method='linear', keepdims=False)`
+
+Computes the q-th percentile of the data along the specified axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `q` (float or array-like of float) — Percentile(s) to compute, in range `[0, 100]`.
+- `axis` (None, int, or tuple of ints, optional) — Axis along which to compute. Default: `None`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+- `method` (str, optional) — Interpolation method. Default: `'linear'`.
+- `keepdims` (bool, optional) — Keep reduced dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` — Percentile scalar or array.
+
+```python
+import dpnp as np
+a = np.array([10, 7, 4, 3, 2, 1])
+np.percentile(a, 50)
+# array(3.5)
+np.percentile(a, [25, 50, 75])
+# array([2.25, 3.5 , 6.25])
+```
+
+---
+
+### `dpnp.nanpercentile(a, q, axis=None, out=None, overwrite_input=False, method='linear', keepdims=False)`
+
+Computes the q-th percentile while ignoring NaN values.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array, may contain NaN.
+- `q` (float or array-like) — Percentile(s) to compute.
+- `axis` (None, int, or tuple of ints, optional) — Axis. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Percentile, NaN values excluded.
+
+```python
+import dpnp as np
+a = np.array([np.nan, 10.0, 7.0, 4.0])
+np.nanpercentile(a, 50)
+# array(7.0)
+```
+
+---
+
+### `dpnp.quantile(a, q, axis=None, out=None, overwrite_input=False, method='linear', keepdims=False)`
+
+Computes the q-th quantile of the data along the specified axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `q` (float or array-like of float) — Quantile(s) to compute, in range `[0, 1]`.
+- `axis` (None, int, or tuple of ints, optional) — Axis. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Quantile scalar or array.
+
+```python
+import dpnp as np
+a = np.array([0.0, 1.0, 2.0, 3.0])
+np.quantile(a, 0.5)
+# array(1.5)
+np.quantile(a, [0.25, 0.75])
+# array([0.75, 2.25])
+```
+
+---
+
+### `dpnp.nanquantile(a, q, axis=None, out=None, overwrite_input=False, method='linear', keepdims=False)`
+
+Computes the q-th quantile while ignoring NaN values.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array, may contain NaN.
+- `q` (float or array-like) — Quantile(s) to compute.
+
+**Returns:** `dpnp.ndarray` — Quantile, NaN values excluded.
+
+```python
+import dpnp as np
+a = np.array([np.nan, 0.0, 1.0, 2.0, 3.0])
+np.nanquantile(a, 0.5)
+# array(1.5)
+```
+
+---
+
+## Averages and variances
+
+### `dpnp.mean(a, axis=None, dtype=None, out=None, keepdims=False, *, where=True)`
+
+Computes the arithmetic mean along the specified axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Axis or axes to average over. Default: `None`.
+- `dtype` (dtype, optional) — Output data type. Default: `None`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+- `keepdims` (bool, optional) — Keep reduced dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` — Arithmetic mean.
+
+```python
+import dpnp as np
+a = np.array([[1.0, 2.0], [3.0, 4.0]])
+np.mean(a)          # array(2.5)
+np.mean(a, axis=0)  # array([2., 3.])
+np.mean(a, axis=1)  # array([1.5, 3.5])
+```
+
+---
+
+### `dpnp.median(a, axis=None, out=None, overwrite_input=False, keepdims=False)`
+
+Computes the median along the specified axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None or int, optional) — Axis along which to compute median. Default: `None`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+- `overwrite_input` (bool, optional) — Allow modification of `a`. Default: `False`.
+- `keepdims` (bool, optional) — Keep reduced dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` — Median value.
+
+```python
+import dpnp as np
+np.median(np.array([1.0, 2.0, 3.0, 4.0, 5.0]))
+# array(3.0)
+np.median(np.array([[1, 2], [3, 4]]), axis=0)
+# array([2., 3.])
+```
+
+---
+
+### `dpnp.average(a, axis=None, weights=None, returned=False, *, keepdims=False)`
+
+Computes the weighted average along the specified axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Axis to average over. Default: `None`.
+- `weights` (array-like, optional) — Weights associated with values in `a`. Default: `None` (uniform weights).
+- `returned` (bool, optional) — If `True`, return `(average, sum_of_weights)`. Default: `False`.
+- `keepdims` (bool, optional) — Keep reduced dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` or `(dpnp.ndarray, dpnp.ndarray)` — Weighted average (and sum of weights if `returned=True`).
+
+```python
+import dpnp as np
+data = np.arange(1, 5)
+np.average(data)
+# array(2.5)
+np.average(np.arange(1, 11), weights=np.arange(10, 0, -1))
+# array(4.0)
+```
+
+---
+
+### `dpnp.std(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False, *, where=True)`
+
+Computes the standard deviation along the specified axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Axis. Default: `None`.
+- `dtype` (dtype, optional) — Output data type. Default: `None`.
+- `ddof` (int, optional) — Delta degrees of freedom. `N - ddof` is used in the denominator. Default: `0`.
+- `keepdims` (bool, optional) — Keep reduced dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` — Standard deviation.
+
+```python
+import dpnp as np
+a = np.array([[1.0, 2.0], [3.0, 4.0]])
+np.std(a)                  # array(1.11803399)
+np.std(a, axis=0)          # array([1., 1.])
+np.std(a, ddof=1)          # array(1.29099445)  # sample std
+```
+
+---
+
+### `dpnp.var(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False, *, where=True)`
+
+Computes the variance along the specified axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Axis. Default: `None`.
+- `ddof` (int, optional) — Delta degrees of freedom. Default: `0`.
+- `keepdims` (bool, optional) — Keep reduced dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` — Variance.
+
+```python
+import dpnp as np
+a = np.array([1.0, 2.0, 3.0, 4.0])
+np.var(a)         # array(1.25)
+np.var(a, ddof=1) # array(1.6667)  # sample variance
+```
+
+---
+
+### `dpnp.nanmean(a, axis=None, dtype=None, out=None, keepdims=False)`
+
+Computes the arithmetic mean while ignoring NaN values.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array, may contain NaN.
+- `axis` (None, int, or tuple of ints, optional) — Axis. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Mean ignoring NaN values.
+
+```python
+import dpnp as np
+a = np.array([1.0, np.nan, 3.0])
+np.nanmean(a)  # array(2.0)
+```
+
+---
+
+### `dpnp.nanmedian(a, axis=None, out=None, overwrite_input=False, keepdims=False)`
+
+Computes the median while ignoring NaN values.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array, may contain NaN.
+- `axis` (None or int, optional) — Axis. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Median ignoring NaN values.
+
+```python
+import dpnp as np
+np.nanmedian(np.array([1.0, np.nan, 3.0, 5.0]))
+# array(3.0)
+```
+
+---
+
+### `dpnp.nanstd(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False)`
+
+Computes the standard deviation while ignoring NaN values.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Axis. Default: `None`.
+- `ddof` (int, optional) — Delta degrees of freedom. Default: `0`.
+
+**Returns:** `dpnp.ndarray` — Standard deviation ignoring NaN.
+
+```python
+import dpnp as np
+np.nanstd(np.array([1.0, np.nan, 3.0]))
+# array(1.0)
+```
+
+---
+
+### `dpnp.nanvar(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False)`
+
+Computes the variance while ignoring NaN values.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Axis. Default: `None`.
+- `ddof` (int, optional) — Delta degrees of freedom. Default: `0`.
+
+**Returns:** `dpnp.ndarray` — Variance ignoring NaN.
+
+```python
+import dpnp as np
+np.nanvar(np.array([1.0, np.nan, 3.0, 5.0]))
+# array(2.6666667)
+```
+
+---
+
+## Extrema finding
+
+### `dpnp.amin(a, axis=None, out=None, keepdims=False, initial=None, where=True)` / `dpnp.min(...)`
+
+Returns the minimum value of an array or along an axis. `amin` is an alias for `min`.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Axis along which to find minimum. Default: `None`.
+- `keepdims` (bool, optional) — Keep reduced dimensions. Default: `False`.
+- `initial` (scalar, optional) — Maximum value of result (lower bound). Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Minimum value.
+
+```python
+import dpnp as np
+a = np.array([[1, 5], [3, 2]])
+np.amin(a)          # array(1)
+np.amin(a, axis=0)  # array([1, 2])
+np.amin(a, axis=1)  # array([1, 2])
+```
+
+---
+
+### `dpnp.amax(a, axis=None, out=None, keepdims=False, initial=None, where=True)` / `dpnp.max(...)`
+
+Returns the maximum value of an array or along an axis. `amax` is an alias for `max`.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Axis along which to find maximum. Default: `None`.
+- `keepdims` (bool, optional) — Keep reduced dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` — Maximum value.
+
+```python
+import dpnp as np
+a = np.array([[1, 5], [3, 2]])
+np.amax(a)          # array(5)
+np.amax(a, axis=1)  # array([5, 3])
+```
+
+---
+
+### `dpnp.nanmin(a, axis=None, out=None, keepdims=False)`
+
+Returns the minimum value, ignoring NaN.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array, may contain NaN.
+- `axis` (None or int, optional) — Axis. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Minimum ignoring NaN.
+
+```python
+import dpnp as np
+np.nanmin(np.array([np.nan, 1.0, 3.0, -2.0]))
+# array(-2.0)
+```
+
+---
+
+### `dpnp.nanmax(a, axis=None, out=None, keepdims=False)`
+
+Returns the maximum value, ignoring NaN.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None or int, optional) — Axis. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Maximum ignoring NaN.
+
+```python
+import dpnp as np
+np.nanmax(np.array([np.nan, 1.0, 3.0, -2.0]))
+# array(3.0)
+```
+
+---
+
+## Correlations
+
+### `dpnp.corrcoef(x, y=None, rowvar=True, *, dtype=None)`
+
+Returns Pearson product-moment correlation coefficients.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — 1-D or 2-D array of variables and observations.
+- `y` (dpnp.ndarray, optional) — An additional set of variables. Default: `None`.
+- `rowvar` (bool, optional) — If `True`, each row is a variable. Default: `True`.
+- `dtype` (dtype, optional) — Data type of the result. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Correlation coefficient matrix, shape `(N, N)`.
+
+```python
+import dpnp as np
+x = np.array([[1.0, 2.0, 3.0], [3.0, 2.0, 1.0]])
+np.corrcoef(x)
+# array([[ 1., -1.],
+#        [-1.,  1.]])
+```
+
+---
+
+### `dpnp.correlate(a, v, mode='valid')`
+
+Returns the cross-correlation of two 1-D sequences.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — First 1-D input sequence.
+- `v` (dpnp.ndarray) — Second 1-D input sequence.
+- `mode` (str, optional) — `'full'`, `'valid'`, or `'same'`. Default: `'valid'`.
+
+**Returns:** `dpnp.ndarray` — Discrete cross-correlation.
+
+```python
+import dpnp as np
+np.correlate(np.array([1, 2, 3]), np.array([0, 1, 0.5]))
+# array([3.5])
+```
+
+---
+
+### `dpnp.cov(m, y=None, rowvar=True, bias=False, ddof=None, fweights=None, aweights=None, *, dtype=None)`
+
+Estimates a covariance matrix, given data and weights.
+
+**Parameters:**
+- `m` (dpnp.ndarray) — 1-D or 2-D array of variables and observations.
+- `y` (dpnp.ndarray, optional) — An additional set of variables. Default: `None`.
+- `rowvar` (bool, optional) — If `True`, each row is a variable. Default: `True`.
+- `bias` (bool, optional) — Normalize by `N` if `True`, else by `N-1`. Default: `False`.
+- `ddof` (int, optional) — Overrides `bias`. Default: `None`.
+- `dtype` (dtype, optional) — Data type. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Covariance matrix.
+
+```python
+import dpnp as np
+x = np.array([[1.0, 2.0, 3.0], [3.0, 2.0, 1.0]])
+np.cov(x)
+# array([[ 1., -1.],
+#        [-1.,  1.]])
+```
+
+---
+
+## Histograms
+
+### `dpnp.histogram(a, bins=10, range=None, density=None, weights=None)`
+
+Computes the histogram of a dataset.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input data; the histogram is computed over the flattened array.
+- `bins` (int or dpnp.ndarray, optional) — Number of bins or bin edge array. Default: `10`.
+- `range` (tuple of float, optional) — Lower and upper range of bins. Default: `(a.min(), a.max())`.
+- `density` (bool, optional) — If `True`, return probability density. Default: `None`.
+- `weights` (dpnp.ndarray, optional) — Weights for each data point. Default: `None`.
+
+**Returns:** `(dpnp.ndarray, dpnp.ndarray)` — Histogram counts (or density) and bin edges.
+
+```python
+import dpnp as np
+a = np.array([1, 2, 1, 3, 2, 1, 4, 3])
+counts, edges = np.histogram(a, bins=4)
+# counts: array([3, 2, 2, 1])
+# edges:  array([1., 1.75, 2.5, 3.25, 4.])
+```
+
+---
+
+### `dpnp.histogram2d(x, y, bins=10, range=None, density=None, weights=None)`
+
+Computes the 2-dimensional histogram of two data samples.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — First data sample.
+- `y` (dpnp.ndarray) — Second data sample, same length as `x`.
+- `bins` (int, or sequence of int, or two sequences, optional) — Bin specification. Default: `10`.
+- `range` (array-like, optional) — Range for each dimension. Default: `None`.
+- `density` (bool, optional) — If `True`, return probability density. Default: `None`.
+
+**Returns:** `(dpnp.ndarray, dpnp.ndarray, dpnp.ndarray)` — 2-D histogram counts, x-bin edges, y-bin edges.
+
+```python
+import dpnp as np
+x = np.random.normal(0, 1, 100)
+y = np.random.normal(0, 1, 100)
+H, xedges, yedges = np.histogram2d(x, y, bins=5)
+```
+
+---
+
+### `dpnp.histogramdd(sample, bins=10, range=None, density=None, weights=None)`
+
+Computes the multidimensional histogram of some data.
+
+**Parameters:**
+- `sample` (dpnp.ndarray) — Data with shape `(N, D)` where `N` is the number of points and `D` is the number of dimensions.
+- `bins` (int, sequence of int, or sequence of arrays, optional) — Bin specification. Default: `10`.
+- `density` (bool, optional) — Return probability density. Default: `None`.
+
+**Returns:** `(dpnp.ndarray, list of dpnp.ndarray)` — N-D histogram counts and list of bin edges per dimension.
+
+```python
+import dpnp as np
+sample = np.random.uniform(size=(100, 3))
+H, edges = np.histogramdd(sample, bins=5)
+```
+
+---
+
+### `dpnp.bincount(x, weights=None, minlength=0)`
+
+Counts the number of occurrences of each value in an array of non-negative integers.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — 1-D array of non-negative integers.
+- `weights` (dpnp.ndarray, optional) — Weights for each value. Default: `None`.
+- `minlength` (int, optional) — Minimum number of bins. Default: `0`.
+
+**Returns:** `dpnp.ndarray` — Count of each value from `0` to `max(x)`.
+
+```python
+import dpnp as np
+np.bincount(np.array([0, 1, 1, 3, 2, 1, 7]))
+# array([1, 3, 1, 1, 0, 0, 0, 1])
+```
+
+---
+
+### `dpnp.digitize(x, bins, right=False)`
+
+Returns the indices of the bins to which each value in `x` belongs.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array of values to bin.
+- `bins` (dpnp.ndarray) — Monotonically increasing or decreasing bin edges.
+- `right` (bool, optional) — If `True`, use right-open intervals. Default: `False`.
+
+**Returns:** `dpnp.ndarray` — Integer indices of bins.
+
+```python
+import dpnp as np
+x = np.array([0.2, 6.4, 3.0, 1.6])
+bins = np.array([0.0, 1.0, 2.5, 4.0, 10.0])
+np.digitize(x, bins)
+# array([1, 4, 3, 2])
+```

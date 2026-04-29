@@ -1,0 +1,504 @@
+---
+title: "Logic functions — DPNP API reference"
+description: "DPNP logic functions: truth-value testing, NaN/Inf checks, type testing, logical AND/OR/XOR/NOT, and element-wise comparisons on SYCL-enabled devices."
+---
+
+DPNP logic functions mirror the NumPy logic API and run on SYCL-enabled accelerators. All functions accept `dpnp.ndarray` and `usm_ndarray` inputs and return `dpnp.ndarray` outputs. Boolean reduction functions such as `all` and `any` support `axis` and `keepdims` parameters.
+
+## Truth value testing
+
+### `dpnp.all(a, axis=None, out=None, keepdims=False, *, where=True)`
+
+Tests whether all array elements along a given axis evaluate to `True`.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Axis or axes along which to perform the logical AND reduction. Default: `None` (all elements).
+- `out` (dpnp.ndarray, optional) — Alternative output array. Default: `None`.
+- `keepdims` (bool, optional) — If `True`, reduced axes remain as size-1 dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` of bool — `True` if all elements are true along the axis.
+
+```python
+import dpnp as np
+x = np.array([[True, False], [True, True]])
+np.all(x)           # array(False)
+np.all(x, axis=0)   # array([ True, False])
+
+x2 = np.array([-1, 4, 5])
+np.all(x2)          # array(True)
+```
+
+---
+
+### `dpnp.any(a, axis=None, out=None, keepdims=False, *, where=True)`
+
+Tests whether any array element along a given axis evaluates to `True`.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Axis for the logical OR reduction. Default: `None`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+- `keepdims` (bool, optional) — Keep reduced dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` of bool — `True` if any element is true along the axis.
+
+```python
+import dpnp as np
+x = np.array([[True, False], [True, True]])
+np.any(x)           # array(True)
+np.any(x, axis=0)   # array([ True,  True])
+np.any(np.array([0, 0, 0]))  # array(False)
+```
+
+---
+
+## Array content tests
+
+### `dpnp.isfinite(x, out=None, order='K')`
+
+Tests element-wise whether each value is finite (neither NaN nor Inf).
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of bool — `True` for finite values.
+
+```python
+import dpnp as np
+x = np.array([1.0, np.inf, np.nan, -np.inf])
+np.isfinite(x)
+# array([ True, False, False, False])
+```
+
+---
+
+### `dpnp.isinf(x, out=None, order='K')`
+
+Tests element-wise whether each value is positive or negative infinity.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` of bool — `True` for infinite values.
+
+```python
+import dpnp as np
+np.isinf(np.array([1.0, np.inf, -np.inf, np.nan]))
+# array([False,  True,  True, False])
+```
+
+---
+
+### `dpnp.isnan(x, out=None, order='K')`
+
+Tests element-wise whether each value is NaN (Not a Number).
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` of bool — `True` for NaN values.
+
+```python
+import dpnp as np
+np.isnan(np.array([1.0, np.nan, np.inf]))
+# array([False,  True, False])
+```
+
+---
+
+### `dpnp.isneginf(x, out=None)`
+
+Tests element-wise whether each value is negative infinity.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of bool — `True` where value is `-inf`.
+
+```python
+import dpnp as np
+np.isneginf(np.array([1.0, -np.inf, np.inf]))
+# array([False,  True, False])
+```
+
+---
+
+### `dpnp.isposinf(x, out=None)`
+
+Tests element-wise whether each value is positive infinity.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of bool — `True` where value is `+inf`.
+
+```python
+import dpnp as np
+np.isposinf(np.array([1.0, -np.inf, np.inf]))
+# array([False, False,  True])
+```
+
+---
+
+## Array type testing
+
+### `dpnp.isreal(x)`
+
+Returns a boolean array where `True` if the element has no imaginary part.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` of bool — `True` for elements with zero imaginary part.
+
+```python
+import dpnp as np
+np.isreal(np.array([1+1j, 1+0j, 0j, 1.0]))
+# array([False,  True,  True,  True])
+```
+
+---
+
+### `dpnp.isrealobj(x)`
+
+Returns `True` if `x` is not a complex type (i.e., does not have a complex dtype).
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `bool` — `True` if the dtype is not complex.
+
+```python
+import dpnp as np
+np.isrealobj(np.array([1.0, 2.0]))     # True
+np.isrealobj(np.array([1+0j, 2+0j]))   # False
+```
+
+---
+
+### `dpnp.iscomplex(x)`
+
+Returns a boolean array where `True` if the element has a non-zero imaginary part.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` of bool — `True` where imaginary part is non-zero.
+
+```python
+import dpnp as np
+np.iscomplex(np.array([1+1j, 1+0j, 1.0]))
+# array([ True, False, False])
+```
+
+---
+
+### `dpnp.iscomplexobj(x)`
+
+Returns `True` if `x` has a complex dtype.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `bool` — `True` if the dtype is complex.
+
+```python
+import dpnp as np
+np.iscomplexobj(np.array([1+0j]))  # True
+np.iscomplexobj(np.array([1.0]))   # False
+```
+
+---
+
+### `dpnp.isscalar(element)`
+
+Returns `True` if the type of `element` is a scalar type.
+
+**Parameters:**
+- `element` — Input object to test.
+
+**Returns:** `bool` — `True` if the element is a scalar.
+
+```python
+import dpnp as np
+np.isscalar(3.1)    # True
+np.isscalar([3.1])  # False
+np.isscalar(np.array(3.1))  # False
+```
+
+---
+
+## Logical operations
+
+### `dpnp.logical_and(x1, x2, out=None, order='K')`
+
+Computes the truth value of `x1 AND x2` element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray) — First operand.
+- `x2` (dpnp.ndarray) — Second operand.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` of bool — Element-wise logical AND.
+
+```python
+import dpnp as np
+np.logical_and(np.array([True, False, True]), np.array([True, True, False]))
+# array([ True, False, False])
+np.logical_and(np.array([1, 0, 1]), np.array([1, 1, 0]))
+# array([ True, False, False])
+```
+
+---
+
+### `dpnp.logical_or(x1, x2, out=None, order='K')`
+
+Computes the truth value of `x1 OR x2` element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray) — First operand.
+- `x2` (dpnp.ndarray) — Second operand.
+
+**Returns:** `dpnp.ndarray` of bool — Element-wise logical OR.
+
+```python
+import dpnp as np
+np.logical_or(np.array([True, False, False]), np.array([False, True, False]))
+# array([ True,  True, False])
+```
+
+---
+
+### `dpnp.logical_xor(x1, x2, out=None, order='K')`
+
+Computes the truth value of `x1 XOR x2` element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray) — First operand.
+- `x2` (dpnp.ndarray) — Second operand.
+
+**Returns:** `dpnp.ndarray` of bool — Element-wise logical XOR.
+
+```python
+import dpnp as np
+np.logical_xor(np.array([True, True, False, False]),
+               np.array([True, False, True, False]))
+# array([False,  True,  True, False])
+```
+
+---
+
+### `dpnp.logical_not(x, out=None, order='K')`
+
+Computes the truth value of `NOT x` element-wise.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` of bool — Element-wise logical NOT.
+
+```python
+import dpnp as np
+np.logical_not(np.array([True, False, 0, 1]))
+# array([False,  True,  True, False])
+```
+
+---
+
+## Comparison
+
+### `dpnp.allclose(a, b, rtol=1e-05, atol=1e-08, equal_nan=False)`
+
+Returns `True` if two arrays are element-wise equal within a tolerance.
+
+Comparison: `|a - b| <= atol + rtol * |b|`.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — First array.
+- `b` (dpnp.ndarray) — Second array.
+- `rtol` (float, optional) — Relative tolerance. Default: `1e-05`.
+- `atol` (float, optional) — Absolute tolerance. Default: `1e-08`.
+- `equal_nan` (bool, optional) — If `True`, NaNs in the same position are treated as equal. Default: `False`.
+
+**Returns:** `bool` — `True` if all elements are within tolerance.
+
+```python
+import dpnp as np
+np.allclose(np.array([1e10, 1e-7]), np.array([1.00001e10, 1e-8]))
+# False
+np.allclose(np.array([1e10, 1e-8]), np.array([1.00001e10, 1e-9]))
+# True
+```
+
+---
+
+### `dpnp.isclose(a, b, rtol=1e-05, atol=1e-08, equal_nan=False)`
+
+Returns a boolean array where two arrays are element-wise equal within a tolerance.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — First array.
+- `b` (dpnp.ndarray) — Second array.
+- `rtol` (float, optional) — Relative tolerance. Default: `1e-05`.
+- `atol` (float, optional) — Absolute tolerance. Default: `1e-08`.
+- `equal_nan` (bool, optional) — Consider NaN equal in same positions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` of bool — Element-wise closeness.
+
+```python
+import dpnp as np
+np.isclose(np.array([1.0, np.nan]), np.array([1.0, np.nan]))
+# array([ True, False])
+np.isclose(np.array([1.0, np.nan]), np.array([1.0, np.nan]), equal_nan=True)
+# array([ True,  True])
+```
+
+---
+
+### `dpnp.array_equal(a1, a2, equal_nan=False)`
+
+Returns `True` if two arrays have the same shape and elements.
+
+**Parameters:**
+- `a1` (dpnp.ndarray) — First array.
+- `a2` (dpnp.ndarray) — Second array.
+- `equal_nan` (bool, optional) — If `True`, NaNs in the same location are equal. Default: `False`.
+
+**Returns:** `bool` — `True` if arrays are element-wise equal.
+
+```python
+import dpnp as np
+np.array_equal(np.array([1, 2]), np.array([1, 2]))  # True
+np.array_equal(np.array([1, 2]), np.array([1, 3]))  # False
+```
+
+---
+
+### `dpnp.array_equiv(a1, a2)`
+
+Returns `True` if two input arrays are shape-consistent and all elements equal. Arrays are shape-consistent if they are broadcastable to a common shape.
+
+**Parameters:**
+- `a1` (dpnp.ndarray) — First array.
+- `a2` (dpnp.ndarray) — Second array.
+
+**Returns:** `bool` — `True` if arrays are equivalent.
+
+```python
+import dpnp as np
+np.array_equiv(np.array([1, 2]), np.array([1, 2]))     # True
+np.array_equiv(np.array([1, 2]), np.array([[1, 2]]))   # True
+np.array_equiv(np.array([1, 2]), np.array([1, 3]))     # False
+```
+
+---
+
+### `dpnp.greater(x1, x2, out=None, order='K')`
+
+Returns `x1 > x2` element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — First operand.
+- `x2` (dpnp.ndarray or scalar) — Second operand.
+
+**Returns:** `dpnp.ndarray` of bool — Element-wise `x1 > x2`.
+
+```python
+import dpnp as np
+np.greater(np.array([4, 2, 1]), np.array([2, 2, 2]))
+# array([ True, False, False])
+```
+
+---
+
+### `dpnp.greater_equal(x1, x2, out=None, order='K')`
+
+Returns `x1 >= x2` element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — First operand.
+- `x2` (dpnp.ndarray or scalar) — Second operand.
+
+**Returns:** `dpnp.ndarray` of bool — Element-wise `x1 >= x2`.
+
+```python
+import dpnp as np
+np.greater_equal(np.array([4, 2, 1]), np.array([2, 2, 2]))
+# array([ True,  True, False])
+```
+
+---
+
+### `dpnp.less(x1, x2, out=None, order='K')`
+
+Returns `x1 < x2` element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — First operand.
+- `x2` (dpnp.ndarray or scalar) — Second operand.
+
+**Returns:** `dpnp.ndarray` of bool — Element-wise `x1 < x2`.
+
+```python
+import dpnp as np
+np.less(np.array([1, 2, 3]), np.array([2, 2, 2]))
+# array([ True, False, False])
+```
+
+---
+
+### `dpnp.less_equal(x1, x2, out=None, order='K')`
+
+Returns `x1 <= x2` element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — First operand.
+- `x2` (dpnp.ndarray or scalar) — Second operand.
+
+**Returns:** `dpnp.ndarray` of bool — Element-wise `x1 <= x2`.
+
+```python
+import dpnp as np
+np.less_equal(np.array([1, 2, 3]), np.array([2, 2, 2]))
+# array([ True,  True, False])
+```
+
+---
+
+### `dpnp.equal(x1, x2, out=None, order='K')`
+
+Returns `x1 == x2` element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — First operand.
+- `x2` (dpnp.ndarray or scalar) — Second operand.
+
+**Returns:** `dpnp.ndarray` of bool — Element-wise `x1 == x2`.
+
+```python
+import dpnp as np
+np.equal(np.array([0, 1, 3]), np.array([0, 1, 2]))
+# array([ True,  True, False])
+```
+
+---
+
+### `dpnp.not_equal(x1, x2, out=None, order='K')`
+
+Returns `x1 != x2` element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — First operand.
+- `x2` (dpnp.ndarray or scalar) — Second operand.
+
+**Returns:** `dpnp.ndarray` of bool — Element-wise `x1 != x2`.
+
+```python
+import dpnp as np
+np.not_equal(np.array([0, 1, 3]), np.array([0, 1, 2]))
+# array([False, False,  True])
+```

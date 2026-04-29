@@ -1,0 +1,188 @@
+---
+title: "Migrate your NumPy code to DPNP"
+description: "Step-by-step guide to porting NumPy programs to DPNP for GPU acceleration, covering import changes, key differences, and data transfer patterns."
+---
+
+DPNP (Data Parallel Extension for NumPy) is designed to be a near drop-in replacement for NumPy on Intel GPUs and other SYCL-capable devices. Most NumPy programs require only a single import change to run on a GPU. This guide covers what works identically, where the two libraries diverge, and how to move data between host and device when needed.
+
+## Step 1: Change the import
+
+The fastest path to GPU acceleration is aliasing `dpnp` as `np`, exactly as you would with NumPy.
+
+<CodeGroup>
+
+```python NumPy
+import numpy as np
+
+x = np.arange(1_000_000, dtype=np.float32)
+y = np.sin(x)
+print(y.mean())
+```
+
+```python DPNP
+import dpnp as np
+
+x = np.arange(1_000_000, dtype=np.float32)
+y = np.sin(x)
+print(y.mean())
+```
+
+</CodeGroup>
+
+The two snippets are identical except for the import line. With DPNP the array `x` is allocated in device USM memory and `sin` runs as a SYCL kernel.
+
+<Note>
+DPNP re-exports the same module-level names as NumPy: `np.pi`, `np.inf`, `np.nan`, `np.newaxis`, and all standard dtypes (`np.float32`, `np.int64`, etc.) are available without any additional changes.
+</Note>
+
+## What works identically
+
+The vast majority of array operations behave the same as in NumPy. The following categories are fully supported:
+
+<CardGroup cols={2}>
+  <Card title="Array creation" icon="table">
+    `array`, `zeros`, `ones`, `empty`, `full`, `arange`, `linspace`, `eye`, `identity`, `diag`, `meshgrid`
+  </Card>
+  <Card title="Math and trigonometry" icon="square-root-variable">
+    `sin`, `cos`, `tan`, `exp`, `log`, `sqrt`, `abs`, `floor`, `ceil`, `round`, `power`
+  </Card>
+  <Card title="Reductions" icon="arrow-down-to-line">
+    `sum`, `prod`, `min`, `max`, `mean`, `std`, `var`, `any`, `all`, `argmin`, `argmax`
+  </Card>
+  <Card title="Array manipulation" icon="arrows-rotate">
+    `reshape`, `ravel`, `flatten`, `transpose`, `concatenate`, `stack`, `split`, `broadcast_to`
+  </Card>
+  <Card title="Linear algebra" icon="superscript">
+    `matmul`, `dot`, `linalg.solve`, `linalg.inv`, `linalg.eig`, `linalg.svd`
+  </Card>
+  <Card title="Indexing and slicing" icon="scissors">
+    Boolean indexing, integer array indexing, `where`, `take`, `compress`, `nonzero`
+  </Card>
+</CardGroup>
+
+Broadcasting rules, operator overloading (`+`, `-`, `*`, `/`, `@`, `**`), and the full `fft`, `linalg`, `random`, and `scipy` sub-namespaces are all available.
+
+## Key differences
+
+### Arrays live on a device
+
+Every `dpnp.ndarray` is backed by a USM allocation on a SYCL device. You cannot silently mix NumPy and DPNP arrays in the same expression.
+
+```python
+import numpy as np_cpu
+import dpnp as np_gpu
+
+a = np_cpu.array([1.0, 2.0, 3.0])   # host array
+b = np_gpu.array([1.0, 2.0, 3.0])   # device array
+
+# This raises TypeError — cannot mix host and device arrays directly
+# result = a + b
+```
+
+### Implicit conversion to NumPy is blocked
+
+Calling `numpy.asarray()` on a `dpnp.ndarray` raises a `TypeError` to prevent silent, expensive host-device copies. Use `.asnumpy()` explicitly instead.
+
+```python
+import dpnp
+import numpy
+
+x = dpnp.ones(10)
+
+# TypeError: Implicit conversion to a NumPy array is not allowed.
+# numpy.asarray(x)
+
+# Correct: explicit copy to host
+x_np = x.asnumpy()
+```
+
+### Some functions have extra keyword arguments
+
+DPNP creation functions accept `device=`, `usm_type=`, and `sycl_queue=` in addition to all standard NumPy keyword arguments. These are optional and default to the current device context.
+
+### Float64 may not be available on all GPUs
+
+Check `device.has_aspect_fp64` before using `float64` on a GPU:
+
+```python
+import dpctl
+
+device = dpctl.select_default_device()
+if not device.has_aspect_fp64:
+    print("float64 not natively supported; using float32")
+```
+
+## Moving data between CPU and GPU
+
+<Steps>
+  <Step title="NumPy array → DPNP array (host to device)">
+    Use `dpnp.asarray()` to transfer a NumPy array to the device. The data is copied once.
+
+    ```python
+    import numpy as np
+    import dpnp
+
+    cpu_data = np.random.rand(1024).astype(np.float32)
+    gpu_data = dpnp.asarray(cpu_data, device="gpu")
+    print(gpu_data.device)  # Device(level_zero:gpu:0)
+    ```
+  </Step>
+  <Step title="DPNP array → NumPy array (device to host)">
+    Call `.asnumpy()` on the array. This always copies data from device memory to host memory.
+
+    ```python
+    import dpnp
+
+    x = dpnp.arange(10, device="gpu")
+    x_cpu = x.asnumpy()          # numpy.ndarray on host
+    print(type(x_cpu))           # <class 'numpy.ndarray'>
+    ```
+  </Step>
+  <Step title="Move an array between devices">
+    Use `.copy(device=...)` or `dpnp.asarray(..., device=...)` to move data from one SYCL device to another.
+
+    ```python
+    import dpnp
+
+    gpu_array = dpnp.ones(100, device="gpu")
+    cpu_array = dpnp.asarray(gpu_array, device="cpu")
+    print(cpu_array.device)  # CPU device
+    ```
+  </Step>
+</Steps>
+
+## Handling unsupported functions
+
+Not every NumPy function is implemented in DPNP yet. When you call an unimplemented function, you will get a `NotImplementedError`. The safest fallback pattern is to move data to the CPU, call NumPy, and then move results back.
+
+```python
+import numpy
+import dpnp
+
+def dpnp_or_numpy(arr, func_name, *args, **kwargs):
+    """Call dpnp if available, otherwise fall back to NumPy on host."""
+    dpnp_func = getattr(dpnp, func_name, None)
+    if dpnp_func is not None:
+        return dpnp_func(arr, *args, **kwargs)
+    # Fall back: copy to host, compute, return as dpnp array
+    cpu_result = getattr(numpy, func_name)(arr.asnumpy(), *args, **kwargs)
+    return dpnp.asarray(cpu_result, device=arr.device)
+```
+
+<Tip>
+Check the [API coverage reference](/reference/array-creation) to see which functions are implemented before writing a fallback.
+</Tip>
+
+## Side-by-side comparison
+
+| Operation | NumPy | DPNP |
+|---|---|---|
+| Import | `import numpy as np` | `import dpnp as np` |
+| Create array | `np.array([1, 2, 3])` | `np.array([1, 2, 3])` |
+| Create on GPU | — | `np.array([1, 2, 3], device="gpu")` |
+| Copy to host | `arr` (already on host) | `arr.asnumpy()` |
+| Copy to device | `np.asarray(arr)` | `dpnp.asarray(arr, device="gpu")` |
+| Check device | — | `arr.device`, `arr.sycl_device` |
+| USM type | — | `arr.usm_type` |
+| Element-wise math | `np.sin(arr)` | `np.sin(arr)` |
+| Matrix multiply | `a @ b` | `a @ b` |

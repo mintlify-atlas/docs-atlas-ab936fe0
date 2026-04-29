@@ -1,0 +1,193 @@
+---
+title: "Build DPNP from source on Linux and Windows"
+description: "Set up a development environment and compile DPNP from source. Covers conda build, scikit-build, and custom SYCL targets for NVIDIA CUDA and AMD HIP GPUs."
+---
+
+Building DPNP from source gives you access to the latest development changes and lets you target hardware beyond Intel GPUs — including NVIDIA and AMD GPUs via CodePlay SYCL plugins. This guide covers environment setup, the two supported build paths (conda build and scikit-build), building for custom SYCL targets, and running the test suite.
+
+<Steps>
+  <Step title="Set up the build environment">
+    DPNP requires a conda environment with the Intel DPC++ compiler and associated libraries. Create and activate the environment for your operating system.
+
+    <Tabs>
+      <Tab title="Linux">
+        ```bash
+        conda create -n build-env dpctl cython dpcpp_linux-64 mkl-devel-dpcpp tbb-devel \
+              onedpl-devel cmake scikit-build ninja versioneer pytest intel-gpu-ocl-icd-system \
+              -c dppy/label/dev -c https://software.repos.intel.com/python/conda/ -c conda-forge --override-channels
+        conda activate build-env
+        ```
+      </Tab>
+      <Tab title="Windows">
+        ```bash
+        conda create -n build-env dpctl cython dpcpp_win-64 mkl-devel-dpcpp tbb-devel \
+              onedpl-devel cmake scikit-build ninja versioneer pytest intel-gpu-ocl-icd-system \
+              -c dppy/label/dev -c https://software.repos.intel.com/python/conda/ -c conda-forge --override-channels
+        conda activate build-env
+        ```
+      </Tab>
+    </Tabs>
+
+    The environment includes:
+    - `dpctl` — Data Parallel Control Library (required runtime dependency)
+    - `dpcpp_linux-64` / `dpcpp_win-64` — Intel DPC++ compiler toolchain
+    - `mkl-devel-dpcpp` — OneMKL headers and libraries for SYCL
+    - `tbb-devel` and `onedpl-devel` — Threading Building Blocks and Data Parallel C++ standard library
+    - `scikit-build`, `cmake`, `ninja` — build system components
+
+    <Note>
+      These environment packages come from the `dppy/label/dev` and Intel conda channels. Use `--override-channels` to prevent mixing packages from the incompatible `anaconda` default channel.
+    </Note>
+  </Step>
+
+  <Step title="Clone the repository">
+    With the build environment active, clone the DPNP source repository:
+
+    ```bash
+    git clone https://github.com/IntelPython/dpnp.git
+    cd dpnp
+    ```
+  </Step>
+
+  <Step title="Build with scikit-build (recommended for development)">
+    The `scikit-build` path compiles the C++/SYCL extension in-place and installs an editable pip package. This is the fastest workflow for iterative development.
+
+    <Tabs>
+      <Tab title="Linux">
+        ```bash
+        python setup.py build_ext --inplace -- -G Ninja -DCMAKE_C_COMPILER:PATH=icx -DCMAKE_CXX_COMPILER:PATH=icpx
+        python -m pip install -e .
+        ```
+      </Tab>
+      <Tab title="Windows">
+        ```bash
+        python setup.py build_ext --inplace -- -G Ninja -DCMAKE_C_COMPILER:PATH=icx -DCMAKE_CXX_COMPILER:PATH=icx
+        python -m pip install -e .
+        ```
+      </Tab>
+    </Tabs>
+
+    Note that on Linux the C++ compiler flag is `icpx`, while on Windows both C and C++ use `icx`.
+
+    **Using the driver script (Linux only)**
+
+    For a simpler single-command build on Linux, use the provided driver script:
+
+    ```bash
+    python scripts/build_locally.py
+    ```
+
+    This script handles compiler flags and CMake configuration automatically.
+  </Step>
+
+  <Step title="Build a conda package">
+    To produce a distributable conda package, use `conda build`. This approach is suitable for packaging releases.
+
+    Create and activate a conda build environment:
+
+    ```bash
+    conda create -n build-env conda-build
+    conda activate build-env
+    ```
+
+    Build the package from the conda recipe:
+
+    ```bash
+    conda build conda-recipe -c https://software.repos.intel.com/python/conda/ -c conda-forge --override-channels
+    ```
+
+    Install the resulting package into your environment:
+
+    ```bash
+    conda install dpnp -c local
+    ```
+  </Step>
+
+  <Step title="Build for custom SYCL targets">
+    DPNP is written in generic SYCL and can target NVIDIA and AMD GPUs when the appropriate CodePlay plugins are installed. The plugins must be installed into a compatible DPC++ installation before building.
+
+    **Required plugins:**
+    - [oneAPI for NVIDIA GPUs](https://developer.codeplay.com/products/oneapi/nvidia/)
+    - [oneAPI for AMD GPUs](https://developer.codeplay.com/products/oneapi/amd/)
+
+    Building for these targets also requires that `dpctl` has been built for the same custom SYCL targets. See the [dpctl custom SYCL targets guide](https://intelpython.github.io/dpctl/latest/beginners_guides/installation.html#building-for-custom-sycl-targets) for details.
+
+    **CUDA build**
+
+    Use the `--target-cuda` flag to build for NVIDIA GPUs. You can optionally specify a CUDA compute architecture:
+
+    ```bash
+    # Target a specific architecture (e.g., sm_80 = Compute Capability 8.0)
+    python scripts/build_locally.py --target-cuda=sm_80
+    ```
+
+    ```bash
+    # Use the default architecture (sm_50), which runs on a wider range of GPUs
+    python scripts/build_locally.py --target-cuda
+    ```
+
+    <Note>
+      The default CUDA architecture is `sm_50`. This maximizes compatibility across NVIDIA GPU generations but does not use newer hardware features. Specify a newer architecture (such as `sm_80` for Ampere) for better performance on supported cards. Look up your GPU's compute capability at the [CUDA GPU Compute Capability](https://developer.nvidia.com/cuda-gpus) documentation.
+    </Note>
+
+    **AMD HIP build**
+
+    Use the `--target-hip` flag with your GPU's architecture code. Unlike CUDA, the AMD plugin requires an explicit architecture — you cannot omit it.
+
+    First, discover your AMD GPU architecture:
+
+    ```bash
+    rocminfo | grep 'Name: *gfx.*'
+    ```
+
+    This prints names such as `gfx90a` or `gfx1030`. Pass one of them to `--target-hip`:
+
+    ```bash
+    python scripts/build_locally.py --target-hip=gfx90a
+    ```
+
+    **Multi-target build**
+
+    You can combine `--target-cuda` and `--target-hip` in a single build to enable both NVIDIA and AMD support simultaneously:
+
+    ```bash
+    python scripts/build_locally.py --target-cuda --target-hip=gfx90a
+    ```
+
+    <Warning>
+      The default build (no extra flags) enables Intel devices only. You must explicitly pass `--target-cuda` or `--target-hip` to add support for other vendors. Each non-Intel target requires the corresponding CodePlay plugin to already be installed.
+    </Warning>
+  </Step>
+
+  <Step title="Run the tests">
+    After building, verify the installation by running the test suite. Tests are located in the `dpnp/tests/` directory.
+
+    **Run all tests against an installed package:**
+
+    ```bash
+    python -m pytest --pyargs dpnp
+    ```
+
+    **Run tests from source:**
+
+    ```bash
+    pytest -s tests
+    ```
+
+    A successful run confirms that the compiled extension is functional on the available SYCL devices. Add `-v` for verbose output or `-k <pattern>` to filter tests by name.
+  </Step>
+</Steps>
+
+## Build dependencies reference
+
+The following table summarises the key build-time requirements declared in `pyproject.toml`:
+
+| Package | Minimum version | Purpose |
+|---|---|---|
+| `cmake` | 3.31.6 | Build system generator |
+| `cython` | 3.0.12 | Compiles `.pyx` extension modules |
+| `dpctl` | 0.20.0 | SYCL device and USM memory management |
+| `numpy` | 1.26.0 | Array protocol and numerical types |
+| `scikit-build` | 0.18.1 | CMake integration for Python packaging |
+| `ninja` | 1.11.1 | Fast build backend (Linux/macOS only) |
+| `setuptools` | 79.0.1 | Python packaging toolchain |

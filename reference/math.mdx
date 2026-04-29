@@ -1,0 +1,1178 @@
+---
+title: "Mathematical functions — DPNP reference"
+description: "DPNP math functions reference: trigonometric, exponential, logarithmic, power, rounding, and floating-point routines GPU-accelerated via Intel oneMKL."
+---
+
+DPNP provides a comprehensive set of mathematical functions that mirror the NumPy API while running computations on GPU and other SYCL-enabled accelerators via Intel's oneMKL. All functions accept `dpnp.ndarray` (or `usm_ndarray`) inputs and return `dpnp.ndarray` outputs allocated in SYCL USM memory.
+
+## Trigonometric functions
+
+### `dpnp.sin(x, out=None, order='K')`
+
+Computes the trigonometric sine for each element of the input array.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array, expected to have a floating-point data type.
+- `out` (dpnp.ndarray, optional) — Output array to populate. Default: `None`.
+- `order` (str, optional) — Memory layout of the output array. Default: `"K"`.
+
+**Returns:** `dpnp.ndarray` — Element-wise sine values in radians.
+
+```python
+import dpnp as np
+x = np.array([0.0, np.pi / 2, np.pi])
+np.sin(x)
+# array([ 0.0000000e+00,  1.0000000e+00, -8.7422777e-08])
+```
+
+---
+
+### `dpnp.cos(x, out=None, order='K')`
+
+Computes the trigonometric cosine for each element of the input array.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array, expected to have a floating-point data type.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+- `order` (str, optional) — Memory layout. Default: `"K"`.
+
+**Returns:** `dpnp.ndarray` — Element-wise cosine values.
+
+```python
+import dpnp as np
+x = np.array([0.0, np.pi / 2, np.pi])
+np.cos(x)
+# array([ 1.000000e+00, -4.371139e-08, -1.000000e+00])
+```
+
+---
+
+### `dpnp.tan(x, out=None, order='K')`
+
+Computes the trigonometric tangent element-wise.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Element-wise tangent values.
+
+```python
+import dpnp as np
+np.tan(np.array([0.0, np.pi / 4]))
+# array([0.0, 1.0])
+```
+
+---
+
+### `dpnp.arcsin(x, out=None, order='K')` / `dpnp.asin(x, out=None, order='K')`
+
+Computes the inverse sine for each element. Returns values in `[-π/2, π/2]`. `arcsin` is an alias for `asin`.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array with values in `[-1, 1]`.
+
+**Returns:** `dpnp.ndarray` — Element-wise inverse sine in radians.
+
+```python
+import dpnp as np
+np.arcsin(np.array([0.0, 1.0, -1.0]))
+# array([ 0.0,  1.5707963, -1.5707963])
+```
+
+---
+
+### `dpnp.arccos(x, out=None, order='K')` / `dpnp.acos(x, out=None, order='K')`
+
+Computes the inverse cosine for each element. Returns values in `[0, π]`. `arccos` is an alias for `acos`.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array with values in `[-1, 1]`.
+
+**Returns:** `dpnp.ndarray` — Element-wise inverse cosine in radians.
+
+```python
+import dpnp as np
+np.arccos(np.array([1.0, -1.0]))
+# array([0.0, 3.14159265])
+```
+
+---
+
+### `dpnp.arctan(x, out=None, order='K')` / `dpnp.atan(x, out=None, order='K')`
+
+Computes the inverse tangent for each element. Returns values in `[-π/2, π/2]`. `arctan` is an alias for `atan`.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+
+**Returns:** `dpnp.ndarray` — Element-wise inverse tangent in radians.
+
+```python
+import dpnp as np
+np.arctan(np.array([0.0, 1.0]))
+# array([0.0, 0.78539816])
+```
+
+---
+
+### `dpnp.arctan2(x1, x2, out=None, order='K')` / `dpnp.atan2(x1, x2, out=None, order='K')`
+
+Computes the element-wise arc tangent of `x1/x2`, choosing the correct quadrant. `arctan2` is an alias for `atan2`.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — y-coordinates (numerator), real-valued floating-point.
+- `x2` (dpnp.ndarray or scalar) — x-coordinates (denominator), real-valued floating-point.
+
+**Returns:** `dpnp.ndarray` — Element-wise arc tangent in radians, range `(-π, π]`.
+
+```python
+import dpnp as np
+x1 = np.array([1.0, -1.0])
+x2 = np.array([0.0, 0.0])
+np.arctan2(x1, x2)
+# array([ 1.57079633, -1.57079633])
+```
+
+---
+
+### `dpnp.hypot(x1, x2, out=None, order='K')`
+
+Computes the hypotenuse `sqrt(x1**2 + x2**2)` element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — First leg, real-valued floating-point.
+- `x2` (dpnp.ndarray or scalar) — Second leg, real-valued floating-point.
+
+**Returns:** `dpnp.ndarray` — Element-wise hypotenuse.
+
+```python
+import dpnp as np
+np.hypot(np.array([3.0, 4.0]), np.array([4.0, 3.0]))
+# array([5., 5.])
+```
+
+---
+
+### `dpnp.sinh(x, out=None, order='K')`
+
+Computes the hyperbolic sine element-wise.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+
+**Returns:** `dpnp.ndarray` — Element-wise hyperbolic sine.
+
+```python
+import dpnp as np
+np.sinh(np.array([0.0, 1.0]))
+# array([0.0, 1.17520119])
+```
+
+---
+
+### `dpnp.cosh(x, out=None, order='K')`
+
+Computes the hyperbolic cosine element-wise: `(e^x + e^(-x)) / 2`.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+
+**Returns:** `dpnp.ndarray` — Element-wise hyperbolic cosine.
+
+```python
+import dpnp as np
+np.cosh(np.array([0.0, np.pi / 2, np.pi]))
+# array([1.0, 2.5091786, 11.591953])
+```
+
+---
+
+### `dpnp.tanh(x, out=None, order='K')`
+
+Computes the hyperbolic tangent element-wise.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+
+**Returns:** `dpnp.ndarray` — Element-wise hyperbolic tangent, values in `(-1, 1)`.
+
+```python
+import dpnp as np
+np.tanh(np.array([0.0, 1.0]))
+# array([0.0, 0.76159416])
+```
+
+---
+
+### `dpnp.arcsinh(x, out=None, order='K')` / `dpnp.asinh(x, out=None, order='K')`
+
+Computes the inverse hyperbolic sine element-wise. `arcsinh` is an alias for `asinh`.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+
+**Returns:** `dpnp.ndarray` — Element-wise inverse hyperbolic sine.
+
+```python
+import dpnp as np
+np.arcsinh(np.array([np.e, 10.0]))
+# array([1.72538256, 2.99822295])
+```
+
+---
+
+### `dpnp.arccosh(x, out=None, order='K')` / `dpnp.acosh(x, out=None, order='K')`
+
+Computes the inverse hyperbolic cosine element-wise. Returns values in `[0, ∞)`. `arccosh` is an alias for `acosh`.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array with values `>= 1`.
+
+**Returns:** `dpnp.ndarray` — Element-wise inverse hyperbolic cosine.
+
+```python
+import dpnp as np
+np.arccosh(np.array([1.0, np.e, 10.0]))
+# array([0.0, 1.65745445, 2.99322285])
+```
+
+---
+
+### `dpnp.arctanh(x, out=None, order='K')` / `dpnp.atanh(x, out=None, order='K')`
+
+Computes the inverse hyperbolic tangent element-wise. `arctanh` is an alias for `atanh`.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array with values in `(-1, 1)`.
+
+**Returns:** `dpnp.ndarray` — Element-wise inverse hyperbolic tangent.
+
+```python
+import dpnp as np
+np.arctanh(np.array([0.0, -0.5]))
+# array([ 0.0, -0.54930614])
+```
+
+---
+
+### `dpnp.deg2rad(x, out=None, order='K')` / `dpnp.radians(x, out=None, order='K')`
+
+Converts angles from degrees to radians element-wise. `radians` is an alias.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input real-valued floating-point array in degrees.
+
+**Returns:** `dpnp.ndarray` — Angles in radians.
+
+```python
+import dpnp as np
+np.deg2rad(np.array([0.0, 90.0, 180.0]))
+# array([0.0, 1.57079633, 3.14159265])
+```
+
+---
+
+### `dpnp.rad2deg(x, out=None, order='K')` / `dpnp.degrees(x, out=None, order='K')`
+
+Converts angles from radians to degrees element-wise. `degrees` is an alias.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input real-valued floating-point array in radians.
+
+**Returns:** `dpnp.ndarray` — Angles in degrees.
+
+```python
+import dpnp as np
+np.rad2deg(np.array([0.0, np.pi / 2, np.pi]))
+# array([  0.,  90., 180.])
+```
+
+---
+
+## Rounding
+
+### `dpnp.round(x, decimals=0, out=None)` / `dpnp.around(x, decimals=0, out=None)`
+
+Rounds each element to the given number of decimal places. `around` is an alias.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input numeric array.
+- `decimals` (int, optional) — Number of decimal places. Negative values round to the left of the decimal point. Default: `0`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Rounded array.
+
+```python
+import dpnp as np
+np.round(np.array([0.5, 1.5, 2.5, 3.5]))
+# array([0., 2., 2., 4.])  # banker's rounding
+```
+
+---
+
+### `dpnp.rint(x, out=None, order='K')`
+
+Rounds each element to the nearest integer, rounding half values to even (banker's rounding).
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input numeric array.
+
+**Returns:** `dpnp.ndarray` — Array rounded to nearest integer.
+
+```python
+import dpnp as np
+np.rint(np.array([-1.7, -0.5, 0.2, 1.5, 2.5]))
+# array([-2., 0., 0., 2., 2.])
+```
+
+---
+
+### `dpnp.fix(x, out=None)`
+
+Rounds elements towards zero (truncates the fractional part).
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input numeric array.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Array truncated towards zero.
+
+```python
+import dpnp as np
+np.fix(np.array([-2.7, -1.2, 0.4, 1.9]))
+# array([-2., -1.,  0.,  1.])
+```
+
+---
+
+### `dpnp.floor(x, out=None, order='K')`
+
+Returns the largest integer less than or equal to each element.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input boolean or real-valued array.
+
+**Returns:** `dpnp.ndarray` — Element-wise floor.
+
+```python
+import dpnp as np
+np.floor(np.array([-1.7, -1.5, -0.2, 0.2, 1.5, 1.7, 2.0]))
+# array([-2., -2., -1.,  0.,  1.,  1.,  2.])
+```
+
+---
+
+### `dpnp.ceil(x, out=None, order='K')`
+
+Returns the smallest integer greater than or equal to each element.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input boolean or real-valued array.
+
+**Returns:** `dpnp.ndarray` — Element-wise ceiling.
+
+```python
+import dpnp as np
+np.ceil(np.array([-1.7, -1.5, -0.2, 0.2, 1.5, 1.7, 2.0]))
+# array([-1., -1., -0.,  1.,  2.,  2.,  2.])
+```
+
+---
+
+### `dpnp.trunc(x, out=None, order='K')`
+
+Returns the truncated integer value of each element (rounds towards zero).
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input boolean or real-valued array.
+
+**Returns:** `dpnp.ndarray` — Element-wise truncated values.
+
+```python
+import dpnp as np
+np.trunc(np.array([-1.7, 0.2, 1.9]))
+# array([-1.,  0.,  1.])
+```
+
+---
+
+## Sums, products, and differences
+
+### `dpnp.sum(a, axis=None, dtype=None, out=None, keepdims=False, initial=None, where=True)`
+
+Sums array elements over a given axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Axis or axes along which to sum. Default: `None` (sum all).
+- `dtype` (dtype, optional) — Output data type. Default: `None`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+- `keepdims` (bool, optional) — If `True`, reduced axes remain as size-1 dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` — Array sum.
+
+```python
+import dpnp as np
+a = np.array([[1, 2], [3, 4]])
+np.sum(a)          # array(10)
+np.sum(a, axis=0)  # array([4, 6])
+np.sum(a, axis=1)  # array([3, 7])
+```
+
+---
+
+### `dpnp.prod(a, axis=None, dtype=None, out=None, keepdims=False, initial=None, where=True)`
+
+Returns the product of array elements over a given axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Axis or axes. Default: `None`.
+- `dtype` (dtype, optional) — Output type. Default: `None`.
+- `keepdims` (bool, optional) — Keep reduced dimensions. Default: `False`.
+
+**Returns:** `dpnp.ndarray` — Product result.
+
+```python
+import dpnp as np
+np.prod(np.array([1, 2, 3, 4]))
+# array(24)
+```
+
+---
+
+### `dpnp.cumsum(a, axis=None, dtype=None, out=None)`
+
+Returns the cumulative sum of elements along a given axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None or int, optional) — Axis along which to accumulate. Default: `None` (flattened).
+- `dtype` (dtype, optional) — Output type. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Cumulative sum with the same shape as `a` (or 1-D if `axis=None`).
+
+```python
+import dpnp as np
+a = np.array([[1, 2, 3], [4, 5, 6]])
+np.cumsum(a)           # array([ 1,  3,  6, 10, 15, 21])
+np.cumsum(a, axis=0)   # array([[1, 2, 3], [5, 7, 9]])
+```
+
+---
+
+### `dpnp.cumprod(a, axis=None, dtype=None, out=None)`
+
+Returns the cumulative product of elements along a given axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None or int, optional) — Accumulation axis. Default: `None`.
+- `dtype` (dtype, optional) — Output type. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Cumulative product.
+
+```python
+import dpnp as np
+np.cumprod(np.array([1, 2, 3]))
+# array([1, 2, 6])
+```
+
+---
+
+### `dpnp.nansum(a, axis=None, dtype=None, out=None, keepdims=False)`
+
+Sums array elements, treating NaN as zero.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None, int, or tuple of ints, optional) — Reduction axis. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Sum ignoring NaNs.
+
+```python
+import dpnp as np
+a = np.array([1.0, np.nan, 3.0])
+np.nansum(a)  # array(4.0)
+```
+
+---
+
+### `dpnp.nanprod(a, axis=None, dtype=None, out=None, keepdims=False)`
+
+Returns the product of elements, treating NaN as one.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `axis` (None or int, optional) — Reduction axis. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Product ignoring NaNs.
+
+```python
+import dpnp as np
+np.nanprod(np.array([1.0, np.nan, 3.0]))
+# array(3.0)
+```
+
+---
+
+### `dpnp.diff(a, n=1, axis=-1, prepend=None, append=None)`
+
+Calculates the n-th discrete difference along the given axis.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Input array.
+- `n` (int, optional) — Number of times to difference. Default: `1`.
+- `axis` (int, optional) — Axis to difference along. Default: `-1`.
+- `prepend`, `append` (scalar or dpnp.ndarray, optional) — Values to prepend/append before differencing. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Differenced array; the axis dimension is reduced by `n`.
+
+```python
+import dpnp as np
+np.diff(np.array([1, 2, 4, 7, 0]))
+# array([ 1,  2,  3, -7])
+```
+
+---
+
+### `dpnp.gradient(f, *varargs, axis=None, edge_order=1)`
+
+Returns the gradient of an N-dimensional array using central differences in the interior and first/second order differences at boundaries.
+
+**Parameters:**
+- `f` (dpnp.ndarray) — Input array.
+- `*varargs` (scalar or dpnp.ndarray) — Spacing between samples. Default: unit spacing.
+- `axis` (None, int, or tuple of ints, optional) — Axes to compute gradient along. Default: all axes.
+- `edge_order` (int, optional) — 1 or 2; order of accuracy at the boundaries. Default: `1`.
+
+**Returns:** `dpnp.ndarray` or list of `dpnp.ndarray` — Gradient arrays.
+
+```python
+import dpnp as np
+f = np.array([1, 4, 9, 16], dtype=float)
+np.gradient(f)
+# array([3., 4., 6., 7.])
+```
+
+---
+
+### `dpnp.cross(a, b, axisa=-1, axisb=-1, axisc=-1, axis=None)`
+
+Returns the cross product of two (arrays of) vectors in R³.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — First input array; last axis defines vectors.
+- `b` (dpnp.ndarray) — Second input array.
+- `axisa`, `axisb`, `axisc` (int, optional) — Axis defining vectors in `a`, `b`, and output. Default: `-1`.
+- `axis` (int, optional) — Overrides `axisa`, `axisb`, and `axisc`. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Vector cross products.
+
+```python
+import dpnp as np
+np.cross(np.array([1, 2, 3]), np.array([4, 5, 6]))
+# array([-3,  6, -3])
+```
+
+---
+
+### `dpnp.trapezoid(y, x=None, dx=1.0, axis=-1)`
+
+Integrates along the given axis using the composite trapezoidal rule.
+
+**Parameters:**
+- `y` (dpnp.ndarray) — Input array to integrate.
+- `x` (dpnp.ndarray, optional) — Sample points corresponding to `y`. Default: `None` (uniform spacing).
+- `dx` (scalar, optional) — Spacing when `x` is `None`. Default: `1.0`.
+- `axis` (int, optional) — Axis to integrate along. Default: `-1`.
+
+**Returns:** `dpnp.ndarray` — Definite integral approximation.
+
+```python
+import dpnp as np
+np.trapezoid(np.array([1.0, 2.0, 3.0]))
+# array(4.0)
+```
+
+---
+
+## Exponents and logarithms
+
+### `dpnp.exp(x, out=None, order='K')`
+
+Computes `e^x` element-wise.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+
+**Returns:** `dpnp.ndarray` — Element-wise exponential.
+
+```python
+import dpnp as np
+np.exp(np.arange(3.0))
+# array([1.0, 2.718281828, 7.389056099])
+```
+
+---
+
+### `dpnp.expm1(x, out=None, order='K')`
+
+Computes `e^x - 1` element-wise with greater precision for small `x`.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+
+**Returns:** `dpnp.ndarray` — Element-wise `e^x - 1`.
+
+```python
+import dpnp as np
+np.expm1(np.array(1e-10))
+# array(1.00000000005e-10)
+```
+
+---
+
+### `dpnp.exp2(x, out=None, order='K')`
+
+Computes `2^x` element-wise.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+
+**Returns:** `dpnp.ndarray` — Element-wise `2^x`.
+
+```python
+import dpnp as np
+np.exp2(np.arange(4.0))
+# array([1., 2., 4., 8.])
+```
+
+---
+
+### `dpnp.log(x, out=None, order='K')`
+
+Computes the natural logarithm element-wise.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+
+**Returns:** `dpnp.ndarray` — Element-wise natural log.
+
+```python
+import dpnp as np
+np.log(np.array([1.0, np.e, np.e**2]))
+# array([0., 1., 2.])
+```
+
+---
+
+### `dpnp.log2(x, out=None, order='K')`
+
+Computes the base-2 logarithm element-wise.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+
+**Returns:** `dpnp.ndarray` — Element-wise base-2 logarithm.
+
+```python
+import dpnp as np
+np.log2(np.array([1.0, 2.0, 4.0, 16.0]))
+# array([0., 1., 2., 4.])
+```
+
+---
+
+### `dpnp.log10(x, out=None, order='K')`
+
+Computes the base-10 logarithm element-wise.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+
+**Returns:** `dpnp.ndarray` — Element-wise base-10 logarithm.
+
+```python
+import dpnp as np
+np.log10(np.array([1.0, 10.0, 100.0]))
+# array([0., 1., 2.])
+```
+
+---
+
+### `dpnp.log1p(x, out=None, order='K')`
+
+Computes `log(1 + x)` element-wise with increased precision for small `x`.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+
+**Returns:** `dpnp.ndarray` — Element-wise `log(1 + x)`.
+
+```python
+import dpnp as np
+np.log1p(np.arange(3.0))
+# array([0.0, 0.69314718, 1.09861229])
+```
+
+---
+
+### `dpnp.logaddexp(x1, x2, out=None, order='K')`
+
+Computes `log(e^x1 + e^x2)` element-wise, useful for log-probabilities.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — First operand, real-valued floating-point.
+- `x2` (dpnp.ndarray or scalar) — Second operand, real-valued floating-point.
+
+**Returns:** `dpnp.ndarray` — Element-wise log-sum-exp.
+
+```python
+import dpnp as np
+np.logaddexp(np.array(1e-50), np.array(2.5e-50))
+# array(3.1415928e-50)
+```
+
+---
+
+### `dpnp.logaddexp2(x1, x2, out=None, order='K')`
+
+Computes `log2(2^x1 + 2^x2)` element-wise.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — First operand.
+- `x2` (dpnp.ndarray or scalar) — Second operand.
+
+**Returns:** `dpnp.ndarray` — Element-wise base-2 log-sum-exp.
+
+```python
+import dpnp as np
+np.logaddexp2(np.array(1.0), np.array(2.0))
+# array(2.5849625)
+```
+
+---
+
+## Power and roots
+
+### `dpnp.sqrt(x, out=None, order='K')`
+
+Computes the non-negative square root element-wise.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` — Element-wise square root.
+
+```python
+import dpnp as np
+np.sqrt(np.array([0.0, 1.0, 4.0, 9.0]))
+# array([0., 1., 2., 3.])
+```
+
+---
+
+### `dpnp.cbrt(x, out=None, order='K')`
+
+Computes the cube root element-wise.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input real-valued floating-point array.
+
+**Returns:** `dpnp.ndarray` — Element-wise cube root.
+
+```python
+import dpnp as np
+np.cbrt(np.array([1.0, 8.0, 27.0]))
+# array([1., 2., 3.])
+```
+
+---
+
+### `dpnp.square(x, out=None, order='K')`
+
+Returns the element-wise square.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` — Element-wise `x**2`.
+
+```python
+import dpnp as np
+np.square(np.array([1.0, 2.0, 3.0]))
+# array([1., 4., 9.])
+```
+
+---
+
+### `dpnp.power(x1, x2, out=None, order='K')` / `dpnp.pow(x1, x2, out=None, order='K')`
+
+Raises first array elements to powers from the second array, element-wise. `pow` is an alias.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — Base array.
+- `x2` (dpnp.ndarray or scalar) — Exponent array.
+
+**Returns:** `dpnp.ndarray` — Element-wise `x1**x2`.
+
+```python
+import dpnp as np
+np.power(np.array([2.0, 3.0, 4.0]), np.array([2.0, 3.0, 4.0]))
+# array([  4.,  27., 256.])
+```
+
+---
+
+### `dpnp.float_power(x1, x2, out=None, order='K')`
+
+Raises elements to powers, always converting to float64 first.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — Base.
+- `x2` (dpnp.ndarray or scalar) — Exponent.
+
+**Returns:** `dpnp.ndarray` — Element-wise float power.
+
+```python
+import dpnp as np
+np.float_power(np.array([2, 4, 8]), 0.5)
+# array([1.41421356, 2.0, 2.82842712])
+```
+
+---
+
+### `dpnp.absolute(x, out=None, order='K')` / `dpnp.abs(x, out=None, order='K')`
+
+Computes the absolute value element-wise. For complex inputs, returns the magnitude. `abs` is an alias.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array of any data type.
+
+**Returns:** `dpnp.ndarray` — Element-wise absolute values.
+
+```python
+import dpnp as np
+np.abs(np.array([-1.2, 1.2]))
+# array([1.2, 1.2])
+np.abs(np.array(1.2 + 1j))
+# array(1.5620499351813308)
+```
+
+---
+
+### `dpnp.fabs(x, out=None, order='K')`
+
+Returns the absolute value element-wise, excluding complex types.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input real-valued array.
+
+**Returns:** `dpnp.ndarray` — Non-negative element-wise absolute values.
+
+```python
+import dpnp as np
+np.fabs(np.array([-2.0, -1.0, 0.0, 1.0, 2.0]))
+# array([2., 1., 0., 1., 2.])
+```
+
+---
+
+### `dpnp.sign(x, out=None, order='K')`
+
+Returns an element-wise indication of the sign of a number: `-1`, `0`, or `1`.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` — Element-wise sign.
+
+```python
+import dpnp as np
+np.sign(np.array([-5.0, 0.0, 4.5]))
+# array([-1.,  0.,  1.])
+```
+
+---
+
+### `dpnp.heaviside(x1, x2, out=None, order='K')`
+
+Computes the Heaviside step function: `0` if `x1 < 0`, `x2` if `x1 == 0`, `1` if `x1 > 0`.
+
+**Parameters:**
+- `x1` (dpnp.ndarray) — Input values.
+- `x2` (dpnp.ndarray) — Value at exactly zero.
+
+**Returns:** `dpnp.ndarray` — Element-wise Heaviside step.
+
+```python
+import dpnp as np
+np.heaviside(np.array([-1.5, 0.0, 2.0]), np.array(0.5))
+# array([0. , 0.5, 1. ])
+```
+
+---
+
+## Floating-point routines
+
+### `dpnp.isfinite(x, out=None, order='K')`
+
+Tests element-wise whether a value is finite (not NaN or Inf).
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` of bool — `True` where finite.
+
+```python
+import dpnp as np
+np.isfinite(np.array([1.0, np.inf, np.nan, -np.inf]))
+# array([ True, False, False, False])
+```
+
+---
+
+### `dpnp.isinf(x, out=None, order='K')`
+
+Tests element-wise whether a value is positive or negative infinity.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` of bool — `True` where infinite.
+
+```python
+import dpnp as np
+np.isinf(np.array([1.0, np.inf, -np.inf, np.nan]))
+# array([False,  True,  True, False])
+```
+
+---
+
+### `dpnp.isnan(x, out=None, order='K')`
+
+Tests element-wise whether a value is NaN.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` of bool — `True` where NaN.
+
+```python
+import dpnp as np
+np.isnan(np.array([1.0, np.nan, np.inf]))
+# array([False,  True, False])
+```
+
+---
+
+### `dpnp.nan_to_num(x, copy=True, nan=0.0, posinf=None, neginf=None)`
+
+Replaces NaN with zero and Inf with large finite numbers.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+- `copy` (bool, optional) — Create a copy. Default: `True`.
+- `nan` (float, optional) — Replacement for NaN. Default: `0.0`.
+- `posinf` (float, optional) — Replacement for positive infinity. Default: largest float.
+- `neginf` (float, optional) — Replacement for negative infinity. Default: most negative float.
+
+**Returns:** `dpnp.ndarray` — Array with NaN and Inf replaced.
+
+```python
+import dpnp as np
+x = np.array([np.nan, np.inf, -np.inf, 1.0])
+np.nan_to_num(x)
+# array([ 0.00000000e+000,  1.79769313e+308, -1.79769313e+308,  1.00000000e+000])
+```
+
+---
+
+### `dpnp.real(x)`
+
+Returns the real part of the complex argument.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` — Real part.
+
+```python
+import dpnp as np
+np.real(np.array([1+2j, 3+4j]))
+# array([1., 3.])
+```
+
+---
+
+### `dpnp.imag(x)`
+
+Returns the imaginary part of the complex argument.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` — Imaginary part.
+
+```python
+import dpnp as np
+np.imag(np.array([1+2j, 3+4j]))
+# array([2., 4.])
+```
+
+---
+
+### `dpnp.conj(x, out=None, order='K')` / `dpnp.conjugate(x, out=None, order='K')`
+
+Returns the complex conjugate element-wise. `conjugate` is an alias.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` — Element-wise complex conjugate.
+
+```python
+import dpnp as np
+np.conj(np.array(1 + 2j))
+# (1-2j)
+```
+
+---
+
+### `dpnp.angle(x, deg=False, out=None, order='K')`
+
+Computes the phase angle (argument) of complex elements.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input complex floating-point array.
+- `deg` (bool, optional) — If `True`, return angle in degrees. Default: `False`.
+
+**Returns:** `dpnp.ndarray` — Element-wise phase angles.
+
+```python
+import dpnp as np
+np.angle(np.array([1.0, 1.0j, 1+1j]))
+# array([0.        , 1.57079633, 0.78539816])
+np.angle(np.array([1.0, 1.0j, 1+1j]), deg=True)
+# array([ 0., 90., 45.])
+```
+
+---
+
+## Miscellaneous
+
+### `dpnp.clip(a, min=None, max=None, *, out=None, order='K')`
+
+Clips (limits) values in an array to the range `[min, max]`.
+
+**Parameters:**
+- `a` (dpnp.ndarray) — Array containing elements to clip.
+- `min` (None, scalar, or dpnp.ndarray, optional) — Minimum value. Default: `None`.
+- `max` (None, scalar, or dpnp.ndarray, optional) — Maximum value. Default: `None`.
+- `out` (dpnp.ndarray, optional) — Output array. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Clipped array.
+
+```python
+import dpnp as np
+a = np.arange(10)
+np.clip(a, 1, 8)
+# array([1, 1, 2, 3, 4, 5, 6, 7, 8, 8])
+```
+
+---
+
+### `dpnp.interp(x, xp, fp, left=None, right=None, period=None)`
+
+Returns the one-dimensional piecewise linear interpolation to a function with given discrete data points `(xp, fp)`.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — x-coordinates at which to evaluate the interpolated values.
+- `xp` (dpnp.ndarray) — x-coordinates of the data points (must be increasing).
+- `fp` (dpnp.ndarray) — y-coordinates of the data points.
+- `left` (float, optional) — Value below `xp[0]`. Default: `fp[0]`.
+- `right` (float, optional) — Value above `xp[-1]`. Default: `fp[-1]`.
+- `period` (float, optional) — Period for periodic interpolation. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Interpolated values, same shape as `x`.
+
+```python
+import dpnp as np
+xp = np.array([1.0, 2.0, 3.0])
+fp = np.array([3.0, 2.0, 0.0])
+np.interp(np.array([1.5, 2.5]), xp, fp)
+# array([2.5, 1.0])
+```
+
+---
+
+### `dpnp.modf(x, out=None)`
+
+Returns the fractional and integral parts of an array, element-wise.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input real-valued array.
+- `out` (tuple of dpnp.ndarray, optional) — Output arrays for fractional and integral parts.
+
+**Returns:** `(dpnp.ndarray, dpnp.ndarray)` — Fractional part and integral part.
+
+```python
+import dpnp as np
+np.modf(np.array([-1.7, 0.3, 2.9]))
+# (array([-0.7,  0.3,  0.9]), array([-1.,  0.,  2.]))
+```
+
+---
+
+### `dpnp.frexp(x, out=None)`
+
+Decomposes elements into mantissa and exponent of a base-2 representation: `x = mantissa * 2^exponent`.
+
+**Parameters:**
+- `x` (dpnp.ndarray) — Input floating-point array.
+
+**Returns:** `(dpnp.ndarray, dpnp.ndarray)` — Mantissa in `[-1, -0.5) ∪ [0.5, 1)` and integer exponent.
+
+```python
+import dpnp as np
+np.frexp(np.array(1.0))
+# (array(0.5), array(1))
+```
+
+---
+
+### `dpnp.ldexp(x1, x2, out=None, order='K')`
+
+Returns `x1 * 2**x2` element-wise. This is the inverse of `frexp`.
+
+**Parameters:**
+- `x1` (dpnp.ndarray or scalar) — Mantissa array.
+- `x2` (dpnp.ndarray or scalar) — Integer exponent array.
+
+**Returns:** `dpnp.ndarray` — `x1 * 2^x2`.
+
+```python
+import dpnp as np
+np.ldexp(np.array([0.5, 0.5]), np.array([2, 4]))
+# array([2., 8.])
+```
+
+---
+
+### `dpnp.divmod(x1, x2, out=None, order='K')`
+
+Returns the element-wise quotient and remainder from floor division simultaneously.
+
+**Parameters:**
+- `x1` (dpnp.ndarray) — Dividend array.
+- `x2` (dpnp.ndarray) — Divisor array.
+
+**Returns:** `(dpnp.ndarray, dpnp.ndarray)` — Quotient and remainder.
+
+```python
+import dpnp as np
+np.divmod(np.arange(5), 3)
+# (array([0, 0, 0, 1, 1]), array([0, 1, 2, 0, 1]))
+```

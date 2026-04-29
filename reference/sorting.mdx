@@ -1,0 +1,230 @@
+---
+title: "Sorting and searching routines — DPNP"
+description: "Reference for DPNP sort, argsort, lexsort, partition, searchsorted, and related functions. GPU-accelerated sorting via SYCL parallel algorithms."
+---
+
+DPNP's sorting functions run entirely on the SYCL device using parallel merge-sort and radix-sort algorithms from the oneDPL library. No data transfer to the host is required during sorting.
+
+<Tip>
+For most numeric data types DPNP automatically selects between parallel radix-sort and merge-sort depending on the dtype and array size. Pass `kind="stable"` to guarantee sort stability when element order among equal values matters.
+</Tip>
+
+---
+
+## Sort functions
+
+### `dpnp.sort(a, axis=-1, kind=None, order=None, *, descending=False, stable=None)`
+
+Return a sorted copy of an array.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Array to sort.
+- `axis` (int or None) — Axis along which to sort. `None` flattens before sorting. Default: `-1`.
+- `kind` (None, `"stable"`, `"mergesort"`, or `"radixsort"`) — Sorting algorithm. `None` lets DPNP choose. `"quicksort"` and `"heapsort"` are **not** supported. Default: `None`.
+- `descending` (bool) — Sort in descending order. Default: `False`.
+- `stable` (bool or None) — Force stable sort. Cannot be combined with `kind`. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Sorted array with the same type and shape as `a`.
+
+<Note>
+DPNP does not support `kind="quicksort"` or `kind="heapsort"`. Passing either raises `NotImplementedError`. The `order` parameter must remain `None`.
+</Note>
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([[1, 4], [3, 1]])
+
+np.sort(a)               # sort along last axis
+# array([[1, 4],
+#        [1, 3]])
+
+np.sort(a, axis=None)    # sort the flattened array
+# array([1, 1, 3, 4])
+
+np.sort(a, axis=0)       # sort along first axis
+# array([[1, 1],
+#        [3, 4]])
+
+np.sort(a, descending=True)
+# array([[4, 1],
+#        [3, 1]])
+```
+
+---
+
+### `dpnp.argsort(a, axis=-1, kind=None, order=None, *, descending=False, stable=None)`
+
+Return the indices that would sort an array.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Array to sort.
+- `axis` (int or None) — Axis to sort along. Default: `-1`.
+- `kind` (None, `"stable"`, `"mergesort"`, or `"radixsort"`) — Algorithm. Default: `None`.
+- `descending` (bool) — Sort indices for descending order. Default: `False`.
+- `stable` (bool or None) — Force stable sort. Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Index array of the same shape as `a`.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.array([3, 1, 2])
+np.argsort(x)
+# array([1, 2, 0])
+
+x = np.array([[0, 3], [2, 2]])
+ind = np.argsort(x, axis=0)
+# ind = array([[0, 1], [1, 0]])
+
+# Reconstruct sorted array using take_along_axis:
+np.take_along_axis(x, ind, axis=0)
+# array([[0, 2],
+#        [2, 3]])
+```
+
+---
+
+### `dpnp.lexsort(keys, axis=-1)`
+
+Perform an indirect stable sort over multiple sort keys.
+
+The last key in `keys` is the primary sort key. Earlier keys act as tiebreakers.
+
+**Parameters:**
+- `keys` (sequence of dpnp.ndarray) — Arrays to sort by, applied last-to-first.
+- `axis` (int) — Axis along which to sort. Default: `-1`.
+
+**Returns:** `dpnp.ndarray` — Indices that sort the data.
+
+**Example:**
+
+```python
+import dpnp as np
+
+# Sort by surname first, then by first name:
+surnames = np.array(['Hertz', 'Galilei', 'Hertz'])
+first_names = np.array(['Heinrich', 'Galileo', 'Gustav'])
+ind = np.lexsort((first_names, surnames))
+# ind = array([1, 2, 0])  (Galilei, G.Hertz, H.Hertz)
+list(zip(surnames[ind], first_names[ind]))
+# [('Galilei', 'Galileo'), ('Hertz', 'Gustav'), ('Hertz', 'Heinrich')]
+```
+
+---
+
+### `dpnp.sort_complex(a)`
+
+Sort a complex array using the real part first, then the imaginary part.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+
+**Returns:** `dpnp.ndarray` of complex dtype.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([5, 3, 6, 2, 1])
+np.sort_complex(a)
+# array([1.+0.j, 2.+0.j, 3.+0.j, 5.+0.j, 6.+0.j])
+
+a = np.array([1 + 2j, 2 - 1j, 3 - 2j, 3 - 3j, 3 + 5j])
+np.sort_complex(a)
+# array([1.+2.j, 2.-1.j, 3.-3.j, 3.-2.j, 3.+5.j])
+```
+
+---
+
+### `dpnp.partition(a, kth, axis=-1, kind="introselect", order=None)`
+
+Return a partitioned copy of an array.
+
+The element at position `kth` is the value it would have in a sorted array. All elements before `kth` are less than or equal to it; all elements after are greater than or equal.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Array to partition.
+- `kth` (int or sequence of ints) — Partition position(s).
+- `axis` (int or None) — Axis to partition along. `None` flattens first. Default: `-1`.
+
+<Note>
+Only `kind="introselect"` is supported. For multi-dimensional arrays or when `kth` has multiple values, DPNP falls back to a full `sort` for correctness.
+</Note>
+
+**Returns:** `dpnp.ndarray` — Partitioned array with the same type and shape as `a`.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([7, 1, 7, 7, 1, 5, 7, 2, 3, 2, 6, 2, 3, 0])
+p = np.partition(a, 4)
+# p[4] is the 5th smallest value; all before are ≤ p[4]
+```
+
+---
+
+### `dpnp.argpartition(a, kth, axis=-1, kind="introselect", order=None)`
+
+Return the indices that would partition an array.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — Input array.
+- `kth` (int or sequence of ints) — Partition position(s).
+- `axis` (int or None) — Axis along which to partition. Default: `-1`.
+
+**Returns:** `dpnp.ndarray` — Index array.
+
+**Example:**
+
+```python
+import dpnp as np
+
+x = np.array([3, 4, 2, 1])
+idx = np.argpartition(x, 2)
+# The element at idx[2] of the original array is the third smallest
+```
+
+---
+
+### `dpnp.searchsorted(a, v, side="left", sorter=None)`
+
+Find indices where elements should be inserted to maintain sorted order.
+
+**Parameters:**
+- `a` (dpnp.ndarray or usm_ndarray) — 1-D sorted input array. If `sorter` is provided, `a` need not be pre-sorted.
+- `v` (dpnp.ndarray, usm_ndarray, or scalar) — Values to insert.
+- `side` (`"left"` or `"right"`) — When equal values exist, `"left"` returns the first valid index, `"right"` the last. Default: `"left"`.
+- `sorter` (dpnp.ndarray or usm_ndarray, optional) — 1-D index array that sorts `a` (typically the result of `argsort`). Default: `None`.
+
+**Returns:** `dpnp.ndarray` — Insertion indices with the same shape as `v`.
+
+**Example:**
+
+```python
+import dpnp as np
+
+a = np.array([11, 12, 13, 14, 15])
+np.searchsorted(a, 13)
+# array(2)
+
+np.searchsorted(a, 13, side='right')
+# array(3)
+
+v = np.array([-10, 20, 12, 13])
+np.searchsorted(a, v)
+# array([0, 5, 1, 2])
+
+# With a sorter:
+a = np.array([40, 10, 20, 30])
+sorter = np.argsort(a)
+np.searchsorted(a, 25, sorter=sorter)
+# array(2)
+```
